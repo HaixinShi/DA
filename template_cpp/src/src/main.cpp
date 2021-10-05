@@ -6,7 +6,7 @@
 #include "hello.h"
 #include <signal.h>
 
-//std::cout << "Hi!GitHub\n";
+
 static void stop(int) {
   // reset signal handlers to default
   signal(SIGTERM, SIG_DFL);
