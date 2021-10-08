@@ -4,7 +4,7 @@
 #include "parser.hpp"
 #include "hello.h"
 #include <signal.h>
-#include "flp2p.h"
+#include "flp2p.hpp"
 
 static void stop(int) {
   // reset signal handlers to default
@@ -44,6 +44,9 @@ int main(int argc, char **argv) {
   std::cout << "List of resolved hosts is:\n";
   std::cout << "==========================\n";
   auto hosts = parser.hosts();
+
+  std::vector<myhost> myhosts;
+
   for (auto &host : hosts) {
     std::cout << host.id << "\n";
     std::cout << "Human-readable IP: " << host.ipReadable() << "\n";
@@ -51,6 +54,12 @@ int main(int argc, char **argv) {
     std::cout << "Human-readbale Port: " << host.portReadable() << "\n";
     std::cout << "Machine-readbale Port: " << host.port << "\n";
     std::cout << "\n";
+
+    struct myhost temp;
+    temp.id = host.id;
+    temp.ip = host.ip;
+    temp.port = host.port;
+    myhosts.push_back(temp);
   }
   std::cout << "\n";
 
@@ -64,7 +73,11 @@ int main(int argc, char **argv) {
 
   std::cout << "Doing some initialization...\n\n";
   
-  flp2p fl = new flp2p(parser.id(), hosts, parser.outputPath(), parser.configPath()); 
+  std::cout << "v-1" << endl;
+
+  std::cout << "v-2" << endl;
+
+  flp2p fl (parser.id(), &myhosts, parser.outputPath(), parser.configPath());
   
   std::cout << "Broadcasting and delivering messages...\n\n";
 
