@@ -1,11 +1,10 @@
 #include <chrono>
 #include <iostream>
 #include <thread>
-
 #include "parser.hpp"
 #include "hello.h"
 #include <signal.h>
-
+#include "flp2p.h"
 
 static void stop(int) {
   // reset signal handlers to default
@@ -64,7 +63,9 @@ int main(int argc, char **argv) {
   std::cout << parser.configPath() << "\n\n";
 
   std::cout << "Doing some initialization...\n\n";
-
+  
+  flp2p fl = new flp2p(parser.id(), hosts, parser.outputPath(), parser.configPath()); 
+  
   std::cout << "Broadcasting and delivering messages...\n\n";
 
   // After a process finishes broadcasting,
