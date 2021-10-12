@@ -7,6 +7,10 @@
 #include <thread>
 #include "parser.hpp"
 using namespace std;
+struct deliver{
+	int seq;
+	unsigned long senderId;
+};
 
 struct myhost{
 	unsigned long id;
@@ -21,7 +25,7 @@ which is the most basic link
 that is implemented by using UDP in this project 
 
 */
-private:
+public:
 	unsigned long myID;//Process ID
 	vector<myhost> hosts;//It stores the global information of processes
 	string output;//log file address
@@ -29,7 +33,7 @@ private:
 	int send_seq=1;
 	ofstream log;
 	int s;
-public:
+
 	//creator funtion of flp2p class
 	flp2p(unsigned long myID, vector<myhost>* hosts, const char* output, const char* config){
 		cout << "enter creator" << endl;
@@ -58,7 +62,7 @@ public:
 				
 		}		
 
-
+		/*		
 		cout << "sending thread init start" << endl;
 		thread sendthread(flp2pSend, this);
 		cout << "sending thread init finish" << endl;
@@ -77,6 +81,7 @@ public:
 			recvthreads[i].join();
 		}
 		//testing
+		*/
 		/*
 		this->s = socket(AF_INET, SOCK_DGRAM, 0);
 		if(myID == 1){
@@ -145,8 +150,8 @@ public:
 	}
 	static void flp2pSend(flp2p* thiz){
 		//create socket
-		int s = socket(AF_INET, SOCK_DGRAM, 0);
-		while(1)//single thread or multi threads
+		//int s = socket(AF_INET, SOCK_DGRAM, 0);
+		//while(1)//single thread or multi threads
 		for (auto &host : thiz->hosts){
 			if(host.id != thiz->myID){
 				//message only include current Process ID
@@ -156,7 +161,7 @@ public:
 					sendmsg[i] = seq[i];
 				}
 				sendmsg[seq.size()]='\0';		
-				thiz->UDPSend(s, host.ip, host.port,sendmsg);
+				thiz->UDPSend(thiz->s, host.ip, host.port,sendmsg);
 				//log this send event
 				string tag = "b ";
 				string loginfo = tag + to_string(thiz->send_seq);
@@ -169,7 +174,7 @@ public:
 		while(1){//single thread or multi threads
 			char recvinfo[10];
 			//message only include send Process ID 			
-			thiz->UDPReceive(thiz->s, host.ip, host.port,recvinfo);
+			thiz->UDPReceive(thiz->s, host.ip, host.port, recvinfo);
 			//log this receive event
 			string tag = "d ";
 			string loginfo = tag + to_string(host.id) +" "+ recvinfo;

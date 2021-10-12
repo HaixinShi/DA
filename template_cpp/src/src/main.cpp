@@ -4,7 +4,7 @@
 #include "parser.hpp"
 #include "hello.h"
 #include <signal.h>
-#include "flp2p.hpp"
+#include "pp2p.hpp"
 
 static void stop(int) {
   // reset signal handlers to default
@@ -73,11 +73,7 @@ int main(int argc, char **argv) {
 
   std::cout << "Doing some initialization...\n\n";
   
-  std::cout << "v-1" << endl;
-
-  std::cout << "v-2" << endl;
-
-  flp2p fl (parser.id(), &myhosts, parser.outputPath(), parser.configPath());
+  pp2p pl (parser.id(), &myhosts, parser.outputPath(), parser.configPath(), 0);
   
   std::cout << "Broadcasting and delivering messages...\n\n";
 
