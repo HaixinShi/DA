@@ -130,28 +130,30 @@ public:
 			cout << "sending encounter errors!" << endl;
 		}
 	}
-	void UDPReceive(int s, in_addr_t ip, unsigned short port, char* buffer){
-		cout << "enter function : UDPReceive" << endl;
-		if(s == -1){
-			cout << "could not create socket while receiving";
-			return;
-		}
-
+	ssize_t UDPReceive(int s, char* buffer){
 		//specify address
 		struct sockaddr_in addr;
 	    socklen_t addr_len = sizeof(addr);
 	    memset(&addr, 0, sizeof(addr));
-	    addr.sin_family = AF_INET; // Use IPV4
-	    addr.sin_port = port;
+	    //!!!!!we just open the door
+	    
+	    //addr.sin_family = AF_INET; // Use IPV4
+	    //addr.sin_port = port;
 	    //inet_aton(ip, &myaddr.sin_addr.s_addr);
-	    addr.sin_addr.s_addr = ip;
+	    //addr.sin_addr.s_addr = ip;
 	    //receive the message from the address
-	    recvfrom(s, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr *>(&addr), &addr_len);
-	}
+	    ssize_t ret = recvfrom(s, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr *>(&addr), &addr_len);
+	    if(ret == -1){
+	    	cout << "errors in UDPReceive!" << endl;
+	    }
+	    //ssize_t ret = recvfrom(s, buffer, sizeof(buffer), 0, NULL, NULL);
+	    cout << "receive from ip:" << inet_ntoa(addr.sin_addr) << endl;
+	    cout << "receive from port:" << htons(addr.sin_port) << endl;
+	    
+	    return ret;//should return senderID
+ 	}
 	static void flp2pSend(flp2p* thiz){
-		//create socket
-		//int s = socket(AF_INET, SOCK_DGRAM, 0);
-		//while(1)//single thread or multi threads
+
 		for (auto &host : thiz->hosts){
 			if(host.id != thiz->myID){
 				//message only include current Process ID
@@ -170,14 +172,15 @@ public:
 			}
 		}
 	}
-	static void flp2pDeliver(flp2p* thiz, myhost host){
+	static void flp2pDeliver(flp2p* thiz){
 		while(1){//single thread or multi threads
 			char recvinfo[10];
 			//message only include send Process ID 			
-			thiz->UDPReceive(thiz->s, host.ip, host.port, recvinfo);
+			unsigned long senderID = thiz->UDPReceive(thiz->s, recvinfo);
+				
 			//log this receive event
 			string tag = "d ";
-			string loginfo = tag + to_string(host.id) +" "+ recvinfo;
+			string loginfo = tag + to_string(senderID) +" "+ recvinfo;
 			thiz->log << loginfo << endl;
 		}
 	}

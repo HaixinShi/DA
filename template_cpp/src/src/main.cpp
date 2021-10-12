@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
 
   std::cout << "Doing some initialization...\n\n";
   
-  pp2p pl (parser.id(), &myhosts, parser.outputPath(), parser.configPath(), 0);
+  pp2p pl (parser.id(), &myhosts, parser.outputPath(), parser.configPath(), 3);
   
   std::cout << "Broadcasting and delivering messages...\n\n";
 
