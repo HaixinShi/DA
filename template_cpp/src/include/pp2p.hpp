@@ -11,11 +11,11 @@ public:
 		thread sendthread(pp2pSend, this);
 		cout << "pp2p sending thread init finish" << endl;
 		cout << "receive thread init start" << endl;
-		thread pp2pDeliver(pp2pSend, this);
+		thread deliverthread(pp2pDeliver, this);
 		cout << "receive thread init finish" << endl;
 		//join the threads
 		sendthread.join();
-		pp2pDeliver.join();
+		deliverthread.join();
 	}
 	static void pp2pSend(pp2p* thiz){
 		thiz->sp2pSend(thiz);

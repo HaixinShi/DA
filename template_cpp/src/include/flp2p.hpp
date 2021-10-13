@@ -130,7 +130,7 @@ public:
 			cout << "sending encounter errors!" << endl;
 		}
 	}
-	ssize_t UDPReceive(int s, char* buffer){
+	unsigned long UDPReceive(int s, char* buffer){
 		//specify address
 		struct sockaddr_in addr;
 	    socklen_t addr_len = sizeof(addr);
@@ -147,13 +147,18 @@ public:
 	    	cout << "errors in UDPReceive!" << endl;
 	    }
 	    //ssize_t ret = recvfrom(s, buffer, sizeof(buffer), 0, NULL, NULL);
-	    cout << "receive from ip:" << inet_ntoa(addr.sin_addr) << endl;
-	    cout << "receive from port:" << htons(addr.sin_port) << endl;
-	    
-	    return ret;//should return senderID
+	    cout << "receive from ip:" << addr.sin_addr.s_addr << endl;
+	    cout << "receive from port:" << addr.sin_port << endl;
+	    unsigned long senderID = 0;
+	    for(unsigned int i = 0; i< this->hosts.size(); i++){
+	    	if(hosts[i].ip == addr.sin_addr.s_addr && hosts[i].port == addr.sin_port){
+	    		senderID = hosts[i].id;
+	    	}
+	    }
+	    return senderID;//should return senderID
  	}
 	static void flp2pSend(flp2p* thiz){
-
+		thiz-> send_seq = 1;
 		for (auto &host : thiz->hosts){
 			if(host.id != thiz->myID){
 				//message only include current Process ID
