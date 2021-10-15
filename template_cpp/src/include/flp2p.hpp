@@ -8,8 +8,8 @@
 #include "parser.hpp"
 using namespace std;
 struct deliver{
-	int seq;
-	unsigned long senderId;
+	string msg;
+	unsigned long senderID;
 };
 
 struct myhost{
@@ -45,7 +45,7 @@ public:
 
 		//bind the listening socket
 		this->s = socket(AF_INET, SOCK_DGRAM, 0);
-		for(unsigned int i=0; i<this->hosts.size(); i++){
+		for(unsigned int i = 0; i < this->hosts.size(); i++){
 			if(this->hosts[i].id == this->myID) {
 				struct sockaddr_in addr;
 			    socklen_t addr_len = sizeof(addr);
@@ -157,8 +157,9 @@ public:
 	    }
 	    return senderID;//should return senderID
  	}
-	static void flp2pSend(flp2p* thiz){
+	static void flp2pSend(flp2p* thiz, myhost target, int m){
 		thiz-> send_seq = 1;
+		/*
 		for (auto &host : thiz->hosts){
 			if(host.id != thiz->myID){
 				//message only include current Process ID
@@ -175,9 +176,26 @@ public:
 				thiz->log << loginfo << endl;
 				thiz->send_seq++;
 			}
+		}*/
+		//message only include current Process ID
+		for(int i = 0; i < m; i++){
+			string seq = to_string(thiz->send_seq);
+			char* sendmsg = new char[seq.size()+1];
+			for(unsigned int i = 0; i<seq.size(); i++){
+				sendmsg[i] = seq[i];
+			}
+			sendmsg[seq.size()]='\0';		
+			thiz->UDPSend(thiz->s, target.ip, target.port, sendmsg);
+			//log this send event
+			string tag = "b ";
+			string loginfo = tag + to_string(thiz->send_seq);
+			thiz->log << loginfo << endl;
+			thiz->send_seq++;
 		}
+
 	}
-	static void flp2pDeliver(flp2p* thiz){
+	static deliver flp2pDeliver(flp2p* thiz){
+		/*
 		while(1){//single thread or multi threads
 			char recvinfo[10];
 			//message only include send Process ID 			
@@ -187,6 +205,20 @@ public:
 			string tag = "d ";
 			string loginfo = tag + to_string(senderID) +" "+ recvinfo;
 			thiz->log << loginfo << endl;
-		}
+		}*/
+		char recvinfo[10];
+		//message only include send Process ID 			
+		unsigned long senderID = thiz->UDPReceive(thiz->s, recvinfo);
+		
+		/*	
+		//log this receive event
+		string tag = "d ";
+		string loginfo = tag + to_string(senderID) +" "+ recvinfo;
+		thiz->log << loginfo << endl;
+		*/
+		deliver d;
+		d.msg = recvinfo;
+		d.senderID = senderID;
+		return d;
 	}
 };
