@@ -8,7 +8,7 @@ private:
 	long int start_time = 0;
 	long int end_time = 0;
 public:
-	sp2p(unsigned long myID, vector<myhost>* hosts, const char* output, const char* config, int timeout): flp2p(myID, hosts, output, config){
+	sp2p(unsigned long myID, vector<myhost>* hosts, const char* output, int timeout): flp2p(myID, hosts, output){
 		this->timeout = timeout;
 	}
 	static void sp2pSend(sp2p* thiz, myhost target, int m){

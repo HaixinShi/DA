@@ -29,18 +29,16 @@ public:
 	unsigned long myID;//Process ID
 	vector<myhost> hosts;//It stores the global information of processes
 	string output;//log file address
-	string config;//determine the behaviours of process
 	int send_seq=1;
 	ofstream log;
 	int s;
 
 	//creator funtion of flp2p class
-	flp2p(unsigned long myID, vector<myhost>* hosts, const char* output, const char* config){
+	flp2p(unsigned long myID, vector<myhost>* hosts, const char* output){
 		cout << "enter creator" << endl;
 		this->myID = myID;
 		this->hosts = *hosts;
 		this->output = output;
-		this->config = config;
 		this->log.open(this->output);
 
 		//bind the listening socket

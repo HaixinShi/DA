@@ -6,35 +6,8 @@ class pp2p : public sp2p{
 private:
 	vector<deliver> delivers;
 public:
-	pp2p(unsigned long myID, vector<myhost>* hosts, const char* output, const char* config, int timeout): sp2p(myID, hosts, output, config, timeout){
-		
-		ifstream configFile(this->config);
-		string line;
-		getline(configFile, line);
+	pp2p(unsigned long myID, vector<myhost>* hosts, const char* output, int timeout): sp2p(myID, hosts, output, timeout){
 
-		istringstream iss(line);
-
-		int m;
-		int i;
-
-		iss >> m >> i; 
-
-		cout << "m: " << to_string(m) << endl;
-		cout << "i: " << to_string(i) << endl;
-
-		if((*hosts)[i].id == myID){
-			// I am the receiver!
-			cout << "receive thread init start" << endl;
-			thread deliverthread(pp2pDeliver, this);
-			cout << "receive thread init finish" << endl;
-			deliverthread.join();			
-		}
-		else{
-			cout << "pp2p sending thread init start" << endl;
-			thread sendthread(pp2pSend, this, (*hosts)[i], m);
-			cout << "pp2p sending thread init finish" << endl;	
-			sendthread.join();		
-		}
 	}
 	static void pp2pSend(pp2p* thiz, myhost target, int m){
 		thiz->sp2pSend(thiz, target, m);

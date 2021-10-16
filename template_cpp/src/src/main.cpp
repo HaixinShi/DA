@@ -73,7 +73,35 @@ int main(int argc, char **argv) {
 
   std::cout << "Doing some initialization...\n\n";
   
-  pp2p pl (parser.id(), &myhosts, parser.outputPath(), parser.configPath(), 3);
+  pp2p* pl = new pp2p(parser.id(), &myhosts, parser.outputPath(), 3);
+  
+  ifstream configFile(parser.configPath());
+  string line;
+  getline(configFile, line);
+
+  istringstream iss(line);
+
+  int m;
+  int i;
+
+  iss >> m >> i; 
+
+  cout << "m: " << to_string(m) << endl;
+  cout << "i: " << to_string(i) << endl;
+  
+  if(myhosts[i].id == parser.id()){
+    // I am the receiver!
+    cout << "receive thread init start" << endl;
+    thread deliverthread(pl->pp2pDeliver, pl);
+    cout << "receive thread init finish" << endl;
+    deliverthread.join();     
+  }
+  else{
+    cout << "pp2p sending thread init start" << endl;
+    thread sendthread(pl -> pp2pSend, pl, myhosts[i], m);
+    cout << "pp2p sending thread init finish" << endl;  
+    sendthread.join();    
+  }
   
   std::cout << "Broadcasting and delivering messages...\n\n";
 
