@@ -16,16 +16,12 @@ static void stop(int) {
 
   // immediately stop network packet processing
   std::cout << "Immediately stopping network packet processing.\n";
-  pl -> stop =true; 
-  while(!(pl->pp2p_send_stop && pl->pp2p_recv_stop)){
-    std::cout <<"wait..."<<endl;
-  }
-  
+  pl -> stop = true;
+  close(pl -> s);
+
   // write/flush output file if necessary 
   std::cout << "Writing output.\n";
-  if(pl){
-    delete pl;
-  }
+  pl -> logfuction();
   std::cout << "exit.\n";
   // exit directly from signal handler
   exit(0);

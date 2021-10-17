@@ -6,14 +6,11 @@ class pp2p : public sp2p{
 private:
 	vector<deliver> delivers;
 public:
-	bool pp2p_send_stop =false;
-	bool pp2p_recv_stop =false;
 	pp2p(unsigned long myID, vector<myhost>* hosts, const char* output, int timeout): sp2p(myID, hosts, output, timeout){
 
 	}
 	static void pp2pSend(pp2p* thiz, myhost target, int m){
 		thiz->sp2pSend(thiz, target, m);
-		thiz -> pp2p_send_stop = true;
 		cout <<"pp2pSend finish!"<< endl;
 	}
 	static void pp2pDeliver(pp2p* thiz){
@@ -25,12 +22,11 @@ public:
 					break;
 				}
 			}
-			if(i == thiz -> delivers.size()){
+			if(i == thiz -> delivers.size()&&!thiz -> stop){
 				thiz -> delivers.push_back(d);
 				thiz -> log += "d " + to_string(d.senderID) +" "+ d.msg +"\n";
 			}
 		}
-		thiz -> pp2p_recv_stop = true;
 		cout << "pp2pDeliver finish!"<< endl;
 		
 	}
