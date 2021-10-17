@@ -12,16 +12,19 @@ public:
 		this->timeout = timeout;
 	}
 	static void sp2pSend(sp2p* thiz, myhost target, int m){
+		bool retransmit = false; 
 		thiz->start_time = clock();
-		while(1){
+		while(!thiz->stop){
 			thiz->end_time = clock();
 			if((thiz->end_time - thiz->start_time)/CLOCKS_PER_SEC > thiz->timeout){
 				//microseconds
-				thiz->flp2pSend(thiz, target, m);
+				thiz->flp2pSend(thiz, target, m, retransmit);
+				retransmit = true;
 				cout << "sp2pSend again" <<endl;
 				thiz->start_time = clock();
 			}
 		}
+		
 	}
 	static deliver sp2pDeliver(sp2p* thiz){
 		return thiz->flp2pDeliver(thiz);

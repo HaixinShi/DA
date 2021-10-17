@@ -6,6 +6,9 @@
 #include <signal.h>
 #include "pp2p.hpp"
 
+pp2p* pl;
+thread* deliverthread;
+thread* sendthread;
 static void stop(int) {
   // reset signal handlers to default
   signal(SIGTERM, SIG_DFL);
@@ -13,10 +16,17 @@ static void stop(int) {
 
   // immediately stop network packet processing
   std::cout << "Immediately stopping network packet processing.\n";
-
-  // write/flush output file if necessary
+  pl -> stop =true; 
+  while(!(pl->pp2p_send_stop && pl->pp2p_recv_stop)){
+    std::cout <<"wait..."<<endl;
+  }
+  
+  // write/flush output file if necessary 
   std::cout << "Writing output.\n";
-
+  if(pl){
+    delete pl;
+  }
+  std::cout << "exit.\n";
   // exit directly from signal handler
   exit(0);
 }
@@ -73,7 +83,7 @@ int main(int argc, char **argv) {
 
   std::cout << "Doing some initialization...\n\n";
   
-  pp2p* pl = new pp2p(parser.id(), &myhosts, parser.outputPath(), 3);
+  pl = new pp2p(parser.id(), &myhosts, parser.outputPath(), 3);
   
   ifstream configFile(parser.configPath());
   string line;
@@ -92,15 +102,15 @@ int main(int argc, char **argv) {
   if(myhosts[i].id == parser.id()){
     // I am the receiver!
     cout << "receive thread init start" << endl;
-    thread deliverthread(pl->pp2pDeliver, pl);
+    deliverthread = new thread(pl->pp2pDeliver, pl);
     cout << "receive thread init finish" << endl;
-    deliverthread.join();     
+    deliverthread -> join();     
   }
   else{
     cout << "pp2p sending thread init start" << endl;
-    thread sendthread(pl -> pp2pSend, pl, myhosts[i], m);
+    sendthread = new thread(pl -> pp2pSend, pl, myhosts[i], m);
     cout << "pp2p sending thread init finish" << endl;  
-    sendthread.join();    
+    sendthread -> join();    
   }
   
   std::cout << "Broadcasting and delivering messages...\n\n";

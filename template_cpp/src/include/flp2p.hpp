@@ -30,8 +30,9 @@ public:
 	vector<myhost> hosts;//It stores the global information of processes
 	string output;//log file address
 	int send_seq=1;
-	ofstream log;
+	string log;
 	int s;
+	bool stop = false;
 
 	//creator funtion of flp2p class
 	flp2p(unsigned long myID, vector<myhost>* hosts, const char* output){
@@ -39,7 +40,7 @@ public:
 		this->myID = myID;
 		this->hosts = *hosts;
 		this->output = output;
-		this->log.open(this->output);
+		//this->log.open(this->output);
 
 		//bind the listening socket
 		this->s = socket(AF_INET, SOCK_DGRAM, 0);
@@ -58,8 +59,13 @@ public:
 				}				
 			}
 				
-		}		
-
+		}
+		//unblocked for stop immediately
+		struct timeval t;
+		t.tv_sec = 0;
+		t.tv_usec = 1000000;
+		setsockopt(this->s, SOL_SOCKET, SO_RCVTIMEO, &t, sizeof(t));		
+		
 		/*		
 		cout << "sending thread init start" << endl;
 		thread sendthread(flp2pSend, this);
@@ -106,56 +112,68 @@ public:
 		
 	}
 	~flp2p(){
-		log.close();
+		cout << "Hi, I am destroyed" << endl;
+		ofstream out;
+		out.open(this->output);
+		out << log;
+		out.close();
+
 	}
 	void UDPSend(int s, in_addr_t ip, unsigned short port, char* message){
-		if(s == -1){
-			cout<<"could not create socket while sending";
-			return;
-		}
-		//specify address
-		struct sockaddr_in addr;
-	    socklen_t addr_len = sizeof(addr);
-	    memset(&addr, 0, sizeof(addr));
-	    addr.sin_family = AF_INET; // Use IPV4
-	    addr.sin_port = port;
-	    addr.sin_addr.s_addr = ip;
+		if(!this -> stop){
+			if(s == -1){
+				cout<<"could not create socket while sending";
+				return;
+			}
+			//specify address
+			struct sockaddr_in addr;
+		    socklen_t addr_len = sizeof(addr);
+		    memset(&addr, 0, sizeof(addr));
+		    addr.sin_family = AF_INET; // Use IPV4
+		    addr.sin_port = port;
+		    addr.sin_addr.s_addr = ip;
 
-	    //send the message to the address
-	    ssize_t ret = 0;
-	    ret = sendto(s, message, sizeof(message), 0, reinterpret_cast<struct sockaddr *>(&addr), addr_len);
-		if(ret == -1){
-			cout << "sending encounter errors!" << endl;
+		    //send the message to the address
+		    ssize_t ret = 0;
+		    ret = sendto(s, message, sizeof(message), 0, reinterpret_cast<struct sockaddr *>(&addr), addr_len);
+			if(ret == -1){
+				cout << "sending encounter errors!" << endl;
+			}
 		}
 	}
 	unsigned long UDPReceive(int s, char* buffer){
-		//specify address
-		struct sockaddr_in addr;
-	    socklen_t addr_len = sizeof(addr);
-	    memset(&addr, 0, sizeof(addr));
-	    //!!!!!we just open the door
-	    
-	    //addr.sin_family = AF_INET; // Use IPV4
-	    //addr.sin_port = port;
-	    //inet_aton(ip, &myaddr.sin_addr.s_addr);
-	    //addr.sin_addr.s_addr = ip;
-	    //receive the message from the address
-	    ssize_t ret = recvfrom(s, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr *>(&addr), &addr_len);
-	    if(ret == -1){
-	    	cout << "errors in UDPReceive!" << endl;
-	    }
-	    //ssize_t ret = recvfrom(s, buffer, sizeof(buffer), 0, NULL, NULL);
-	    cout << "receive from ip:" << addr.sin_addr.s_addr << endl;
-	    cout << "receive from port:" << addr.sin_port << endl;
-	    unsigned long senderID = 0;
-	    for(unsigned int i = 0; i< this->hosts.size(); i++){
-	    	if(hosts[i].ip == addr.sin_addr.s_addr && hosts[i].port == addr.sin_port){
-	    		senderID = hosts[i].id;
-	    	}
-	    }
-	    return senderID;//should return senderID
+		if(!this -> stop){
+			unsigned long senderID = 0;
+			//specify address
+			struct sockaddr_in addr;
+		    socklen_t addr_len = sizeof(addr);
+		    memset(&addr, 0, sizeof(addr));
+		    //!!!!!we just open the door
+		    
+		    //addr.sin_family = AF_INET; // Use IPV4
+		    //addr.sin_port = port;
+		    //inet_aton(ip, &myaddr.sin_addr.s_addr);
+		    //addr.sin_addr.s_addr = ip;
+		    //receive the message from the address
+		    ssize_t ret = recvfrom(s, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr *>(&addr), &addr_len);
+		    if(ret == -1){
+		    	cout << "errors in UDPReceive!" << endl;
+		    }
+		    //ssize_t ret = recvfrom(s, buffer, sizeof(buffer), 0, NULL, NULL);
+		    cout << "receive from ip:" << addr.sin_addr.s_addr << endl;
+		    cout << "receive from port:" << addr.sin_port << endl;
+		    
+		    for(unsigned int i = 0; i< this->hosts.size(); i++){
+		    	if(hosts[i].ip == addr.sin_addr.s_addr && hosts[i].port == addr.sin_port){
+		    		senderID = hosts[i].id;
+		    	}
+		    }
+		    return senderID;//should return senderID
+		}
+		return -1;
+
  	}
-	static void flp2pSend(flp2p* thiz, myhost target, int m){
+	static void flp2pSend(flp2p* thiz, myhost target, int m, bool retransmit){
 		thiz-> send_seq = 1;
 		/*
 		for (auto &host : thiz->hosts){
@@ -185,9 +203,10 @@ public:
 			sendmsg[seq.size()]='\0';		
 			thiz->UDPSend(thiz->s, target.ip, target.port, sendmsg);
 			//log this send event
-			string tag = "b ";
-			string loginfo = tag + to_string(thiz->send_seq);
-			thiz->log << loginfo << endl;
+			if(retransmit == false){
+				thiz->log += "b " + seq + "\n";
+				//thiz->log << loginfo << endl;
+			}
 			thiz->send_seq++;
 		}
 
