@@ -61,6 +61,9 @@ public:
 				if( bind(this->s , reinterpret_cast<struct sockaddr *>(&addr), addr_len ) == -1)
 				{
 					cout<<"bind error!" << endl;
+				}
+				else {
+					cout << "bind success!" <<endl;
 				}				
 			}
 				

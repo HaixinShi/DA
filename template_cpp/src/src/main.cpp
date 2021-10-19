@@ -95,7 +95,7 @@ int main(int argc, char **argv) {
   cout << "m: " << to_string(m) << endl;
   cout << "i: " << to_string(i) << endl;
   
-  if(myhosts[i].id == parser.id()){
+  if(myhosts[i-1].id == parser.id()){//index is ID
     // I am the receiver!
     cout << "receive thread init start" << endl;
     deliverthread = new thread(pl->pp2pDeliver, pl);
@@ -104,7 +104,7 @@ int main(int argc, char **argv) {
   }
   else{
     cout << "pp2p sending thread init start" << endl;
-    sendthread = new thread(pl -> pp2pSend, pl, myhosts[i], m);
+    sendthread = new thread(pl -> pp2pSend, pl, myhosts[i-1], m);
     cout << "pp2p sending thread init finish" << endl;  
     sendthread -> join();    
   }
