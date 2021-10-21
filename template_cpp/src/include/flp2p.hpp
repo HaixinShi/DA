@@ -177,9 +177,6 @@ public:
 	    	cout << "errors in UDPReceive!" << endl;
 	    	return senderID;
 	    }
-	    //ssize_t ret = recvfrom(s, buffer, sizeof(buffer), 0, NULL, NULL);
-	    cout << "receive from ip:" << addr.sin_addr.s_addr << endl;
-	    cout << "receive from port:" << addr.sin_port << endl;
 	    
 	    for(unsigned int i = 0; i< this->hosts.size(); i++){
 	    	if(hosts[i].ip == addr.sin_addr.s_addr && hosts[i].port == addr.sin_port){
@@ -219,7 +216,6 @@ public:
 			sendmsg[seq.size()]='\0';
 			
 			if(thiz -> stop)break;		
-			cout << "msg size:"<< sizeof(sendmsg)<<endl;
 			thiz->UDPSend(thiz->s, target.ip, target.port, sendmsg);
 			//log this send event
 			if(retransmit == false&& !thiz -> stop){
@@ -227,6 +223,8 @@ public:
 				thiz->log += "b " + seq + "\n";
 				//thiz->log << loginfo << endl;
 			}
+			delete sendmsg;
+			sendmsg = NULL;
 			thiz->send_seq++;
 		}
 

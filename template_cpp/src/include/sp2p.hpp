@@ -21,7 +21,6 @@ public:
 				//microseconds
 				thiz->flp2pSend(thiz, target, m, retransmit);
 				retransmit = true;
-				cout << "sp2pSend again" <<endl;
 				thiz->start_time = clock();
 			}
 		}
