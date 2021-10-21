@@ -25,6 +25,7 @@ public:
 			if(i == thiz -> delivers.size()&&!thiz -> stop){
 				thiz -> delivers.push_back(d);
 				thiz -> log += "d " + to_string(d.senderID) +" "+ d.msg +"\n";
+				thiz -> count++;
 			}
 		}
 		cout << "pp2pDeliver finish!"<< endl;

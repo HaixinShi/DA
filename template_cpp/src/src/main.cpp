@@ -9,6 +9,8 @@
 pp2p* pl;
 thread* deliverthread;
 thread* sendthread;
+long int start_time;
+long int end_time;
 static void stop(int) {
   // reset signal handlers to default
   signal(SIGTERM, SIG_DFL);
@@ -18,12 +20,18 @@ static void stop(int) {
   std::cout << "Immediately stopping network packet processing.\n";
   pl -> stop = true;
   close(pl -> s);
-
+  end_time = clock();
+  
   // write/flush output file if necessary 
   std::cout << "Writing output.\n";
   pl -> logfuction();
-  std::cout << "exit.\n";
+  std::cout << "messages:"<<to_string(pl->count)<<endl;
+  float throughput = static_cast<float>(pl->count)/static_cast<float>(end_time - start_time)*static_cast<float>(CLOCKS_PER_SEC);
+  std::cout << "throughput:"<<to_string(throughput)<<" messages/second"<<endl;
+  
+
   // exit directly from signal handler
+  std::cout << "exit.\n";
   exit(0);
 }
 
@@ -38,6 +46,7 @@ int main(int argc, char **argv) {
   Parser parser(argc, argv);
   parser.parse();
 
+  start_time = clock();//timer start!
   hello();
   std::cout << std::endl;
 
@@ -79,7 +88,7 @@ int main(int argc, char **argv) {
 
   std::cout << "Doing some initialization...\n\n";
   
-  pl = new pp2p(parser.id(), &myhosts, parser.outputPath(), 3);
+  pl = new pp2p(parser.id(), &myhosts, parser.outputPath(), 1);
   
   ifstream configFile(parser.configPath());
   string line;
@@ -105,6 +114,7 @@ int main(int argc, char **argv) {
   else{
     cout << "pp2p sending thread init start" << endl;
     sendthread = new thread(pl -> pp2pSend, pl, myhosts[i-1], m);
+    pl -> sendProcess = true;
     cout << "pp2p sending thread init finish" << endl;  
     sendthread -> join();    
   }

@@ -13,6 +13,7 @@ public:
 	}
 	static void sp2pSend(sp2p* thiz, myhost target, int m){
 		bool retransmit = false; 
+		thiz->flp2pSend(thiz, target, m, retransmit);
 		thiz->start_time = clock();
 		while(!thiz->stop){
 			thiz->end_time = clock();

@@ -90,7 +90,7 @@ class Validation:
                 hosts.write("{} localhost {}\n".format(i, PROCESSES_BASE_IP+i))
 
         with open(configfile, 'w') as config:
-            config.write("{} 3\n".format(self.messages))
+            config.write("{} 1\n".format(self.messages))
 
         return (hostsfile, configfile)
 

@@ -26,6 +26,8 @@ that is implemented by using UDP in this project
 
 */
 public:
+	bool sendProcess =false;//this property is specific for Perfect Links
+	int count = 0;//the number of messages
 	unsigned long myID;//Process ID
 	vector<myhost> hosts;//It stores the global information of processes
 	string output;//log file address
@@ -37,7 +39,9 @@ public:
 		ofstream out;
 		out.open(this->output);
 		out << log;
+		out.flush();
 		out.close();
+		cout << "I finish logging!"<< endl;
 	}
 	//creator funtion of flp2p class
 	flp2p(unsigned long myID, vector<myhost>* hosts, const char* output){
@@ -126,22 +130,30 @@ public:
 
 	}
 	void UDPSend(int s, in_addr_t ip, unsigned short port, char* message){
-		cout << "UDP sending..." << endl;
 		if(s == -1){
 			cout<<"could not create socket while sending";
 			return;
 		}
-		//specify address
-		struct sockaddr_in addr;
-	    socklen_t addr_len = sizeof(addr);
-	    memset(&addr, 0, sizeof(addr));
-	    addr.sin_family = AF_INET; // Use IPV4
-	    addr.sin_port = port;
-	    addr.sin_addr.s_addr = ip;
+
+		//for send process, apply connect function to set target process for sending messages
+		//son in this case, we can improve performance
+		if(sendProcess) {
+			//specify address
+			struct sockaddr_in addr;
+		    socklen_t addr_len = sizeof(addr);
+		    memset(&addr, 0, sizeof(addr));
+		    addr.sin_family = AF_INET; // Use IPV4
+		    addr.sin_port = port;
+		    addr.sin_addr.s_addr = ip;
+			connect(this -> s, reinterpret_cast<struct sockaddr *>(&addr), addr_len);
+			sendProcess = false;			
+		}	
+
 
 	    //send the message to the address
 	    ssize_t ret = 0;
-    	ret = sendto(s, message, sizeof(message), 0, reinterpret_cast<struct sockaddr *>(&addr), addr_len);
+    	//ret = sendto(s, message, sizeof(message), 0, reinterpret_cast<struct sockaddr *>(&addr), addr_len);
+    	ret = send(s, message, sizeof(message), 0);
     	if(ret == -1){
     		cout << "UDPSend fail!"<< endl;
     		return;
@@ -199,7 +211,6 @@ public:
 		}*/
 		//message only include current Process ID
 		for(int i = 0; i < m; i++){
-			cout << "flp2pSend sending" <<endl;
 			string seq = to_string(thiz->send_seq);
 			char* sendmsg = new char[seq.size()+1];
 			for(unsigned int i = 0; i<seq.size(); i++){
@@ -208,10 +219,11 @@ public:
 			sendmsg[seq.size()]='\0';
 			
 			if(thiz -> stop)break;		
-			
+			cout << "msg size:"<< sizeof(sendmsg)<<endl;
 			thiz->UDPSend(thiz->s, target.ip, target.port, sendmsg);
 			//log this send event
 			if(retransmit == false&& !thiz -> stop){
+				thiz->count++;
 				thiz->log += "b " + seq + "\n";
 				//thiz->log << loginfo << endl;
 			}
@@ -231,7 +243,7 @@ public:
 			string loginfo = tag + to_string(senderID) +" "+ recvinfo;
 			thiz->log << loginfo << endl;
 		}*/
-		char recvinfo[10];
+		char recvinfo[8];
 		//message only include send Process ID 			
 		unsigned long senderID = thiz->UDPReceive(thiz->s, recvinfo);
 		/*	
