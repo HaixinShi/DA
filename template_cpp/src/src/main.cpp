@@ -88,7 +88,7 @@ int main(int argc, char **argv) {
 
   std::cout << "Doing some initialization...\n\n";
   
-  pl = new pp2p(parser.id(), &myhosts, parser.outputPath(), 1);
+  pl = new pp2p(parser.id(), &myhosts, parser.outputPath(), 0);
   
   ifstream configFile(parser.configPath());
   string line;
