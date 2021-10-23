@@ -7,8 +7,6 @@
 #include "pp2p.hpp"
 
 pp2p* pl;
-thread* deliverthread;
-thread* sendthread;
 long int start_time;
 long int end_time;
 static void stop(int) {
@@ -107,16 +105,25 @@ int main(int argc, char **argv) {
   if(myhosts[i-1].id == parser.id()){//index is ID
     // I am the receiver!
     cout << "receive thread init start" << endl;
-    deliverthread = new thread(pl->pp2pDeliver, pl);
+    thread deliverthread(pl->pp2pDeliver, pl);
     cout << "receive thread init finish" << endl;
-    deliverthread -> join();     
+    deliverthread.join();     
   }
   else{
-    cout << "pp2p sending thread init start" << endl;
-    sendthread = new thread(pl -> pp2pSend, pl, myhosts[i-1], m);
     pl -> sendProcess = true;
-    cout << "pp2p sending thread init finish" << endl;  
-    sendthread -> join();    
+
+    cout << "pp2p sending thread init start" << endl;
+    thread sendthread(pl -> pp2pSend, pl, myhosts[i-1], m);
+    cout << "pp2p sending thread init finish" << endl;
+    //I need to receive ack!!!
+    cout << "receive thread init start" << endl;
+    thread deliverthread(pl->pp2pDeliver, pl);
+    cout << "pp2p sending thread init finish" << endl;
+
+    //pl->pp2pDeliver(pl);
+    deliverthread.join();
+    sendthread.join(); 
+    cout << "join finish" << endl;
   }
   
   std::cout << "Broadcasting and delivering messages...\n\n";

@@ -4,7 +4,9 @@
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <string>
+#include <sstream>
 #include <thread>
+#include <mutex>
 #include "parser.hpp"
 using namespace std;
 struct deliver{
@@ -18,6 +20,7 @@ struct myhost{
 	unsigned short port;
 };
 
+mutex mtx;
 class flp2p {
 /*
 This class is for fair-loss link, 
@@ -25,8 +28,12 @@ which is the most basic link
 that is implemented by using UDP in this project 
 
 */
+private:
+	vector<char*> sended;
 public:
-	bool sendProcess =false;//this property is specific for Perfect Links
+	bool* ack;
+	bool connected = false;
+	bool sendProcess = false;//this property is specific for Perfect Links
 	int count = 0;//the number of messages
 	unsigned long myID;//Process ID
 	vector<myhost> hosts;//It stores the global information of processes
@@ -130,14 +137,15 @@ public:
 
 	}
 	void UDPSend(int s, in_addr_t ip, unsigned short port, char* message){
+		cout << "enter UDPSend" << endl;
 		if(s == -1){
 			cout<<"could not create socket while sending";
 			return;
 		}
-
 		//for send process, apply connect function to set target process for sending messages
-		//son in this case, we can improve performance
-		if(sendProcess) {
+		//so in this case, we can improve performance
+		
+		if(sendProcess && !connected) {
 			//specify address
 			struct sockaddr_in addr;
 		    socklen_t addr_len = sizeof(addr);
@@ -145,21 +153,24 @@ public:
 		    addr.sin_family = AF_INET; // Use IPV4
 		    addr.sin_port = port;
 		    addr.sin_addr.s_addr = ip;
-			connect(this -> s, reinterpret_cast<struct sockaddr *>(&addr), addr_len);
-			sendProcess = false;			
+			connect(s, reinterpret_cast<struct sockaddr *>(&addr), addr_len);			
+			connected = true;
 		}	
 
-
 	    //send the message to the address
-	    ssize_t ret = 0;
+	    //ssize_t ret = 0;
     	//ret = sendto(s, message, sizeof(message), 0, reinterpret_cast<struct sockaddr *>(&addr), addr_len);
-    	ret = send(s, message, sizeof(message), 0);
+    	//ret = send(s, message, sizeof(message), 0);
+    	send(s, message, sizeof(message), 0);
+    	/*
     	if(ret == -1){
     		cout << "UDPSend fail!"<< endl;
     		return;
-    	}
+    	}*/
+    	cout << "leave UDPSend" << endl;
 	}
 	unsigned long UDPReceive(int s, char* buffer){
+		cout << "enter UDPReceive" <<endl;
 		unsigned long senderID = 0;
 		//specify address
 		struct sockaddr_in addr;
@@ -177,17 +188,34 @@ public:
 	    	cout << "errors in UDPReceive!" << endl;
 	    	return senderID;
 	    }
-	    
+
+	   	if(sendProcess){
+	   		//I want to find out ack
+	   		stringstream ss;
+	   		ss << buffer;
+	   		int seq;
+	   		ss >> seq;
+	   		mtx.lock();
+	   		ack[seq - 1] = true;
+	   		mtx.unlock();
+	   		cout << "I receive ack "<< to_string(seq) << endl;
+	    }
+	    else{
+	    	//I want to send ack to the sender
+	    	sendto(s, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr *>(&addr), addr_len);
+	    	cout << "I send ack" << buffer << endl;
+	    }
+
 	    for(unsigned int i = 0; i< this->hosts.size(); i++){
 	    	if(hosts[i].ip == addr.sin_addr.s_addr && hosts[i].port == addr.sin_port){
 	    		senderID = hosts[i].id;
 	    	}
 	    }
+	    cout << "leave UDPReceive" <<endl;
 	    return senderID;//should return senderID
 
  	}
 	static void flp2pSend(flp2p* thiz, myhost target, int m, bool retransmit){
-		thiz-> send_seq = 1;
 		/*
 		for (auto &host : thiz->hosts){
 			if(host.id != thiz->myID){
@@ -207,25 +235,38 @@ public:
 			}
 		}*/
 		//message only include current Process ID
-		for(int i = 0; i < m; i++){
-			string seq = to_string(thiz->send_seq);
-			char* sendmsg = new char[seq.size()+1];
-			for(unsigned int i = 0; i<seq.size(); i++){
-				sendmsg[i] = seq[i];
-			}
-			sendmsg[seq.size()]='\0';
+		if(!thiz -> stop)
+			if(retransmit == false){
+				thiz-> send_seq = 1;
+				for(int i = 0; i < m; i++){
+					string seq = to_string(thiz->send_seq);
+					char* sendmsg = new char[seq.size()+1];
+					for(unsigned int i = 0; i<seq.size(); i++){
+						sendmsg[i] = seq[i];
+					}
+					sendmsg[seq.size()]='\0';
 			
-			if(thiz -> stop)break;		
-			thiz->UDPSend(thiz->s, target.ip, target.port, sendmsg);
-			//log this send event
-			if(retransmit == false&& !thiz -> stop){
-				thiz->count++;
-				thiz->log += "b " + seq + "\n";
-				//thiz->log << loginfo << endl;
+					thiz->UDPSend(thiz->s, target.ip, target.port, sendmsg);
+					
+					thiz -> sended.push_back(sendmsg);
+					thiz->count++;
+					//log this send event
+					thiz->log += "b " + seq + "\n";
+
+					thiz->send_seq++;
+				}
 			}
-			delete sendmsg;
-			sendmsg = NULL;
-			thiz->send_seq++;
+			else{
+				for(unsigned int i = 0; i < thiz -> sended.size(); i++){
+					mtx.lock();					
+					if(!thiz -> ack[i]){
+						thiz->UDPSend(thiz->s, target.ip, target.port, thiz -> sended[i]);	
+					}
+					mtx.unlock();
+				}
+			}
+		else{
+
 		}
 
 	}
