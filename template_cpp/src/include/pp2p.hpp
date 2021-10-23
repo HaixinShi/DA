@@ -1,40 +1,43 @@
 #include "sp2p.hpp"
-
+#include <set>
 using namespace std;
 
 class pp2p : public sp2p{
 private:
-	vector<deliver> delivers;
+	set<string> delivers;
 public:
-	pp2p(unsigned long myID, vector<myhost>* hosts, const char* output, int timeout): sp2p(myID, hosts, output, timeout){
+	pp2p(unsigned long myID, vector<myhost>* hosts, const char* output): sp2p(myID, hosts, output){
 
 	}
-	static void pp2pSend(pp2p* thiz, myhost target, int m){
-		thiz -> ack = new bool[m];
-		fill_n(thiz->ack, m, 0);
-		for(int i =0; i < m; )
-		thiz->sp2pSend(thiz, target, m);
-		cout <<"pp2pSend finish!"<< endl;
+	void startPerfectLink(){
+		thread sendthread(&sp2p::sp2pSend, this);
+		thread recvthread(&pp2p::pp2pDeliver, this);
+		sendthread.join();
+		recvthread.join();
 	}
-	static void pp2pDeliver(pp2p* thiz){
-		while(!thiz -> stop){
-			deliver d = thiz->sp2pDeliver(thiz);
-			if(!thiz -> sendProcess){
-				unsigned int i = 0;
-				for(; i< thiz -> delivers.size(); i++){
-					if(thiz -> delivers[i].senderID == d.senderID && thiz -> delivers[i].msg == d.msg){
-						break;
-					}
-				}
-				if(i == thiz -> delivers.size()&&!thiz -> stop){
-					thiz -> delivers.push_back(d);
-					thiz -> log += "d " + to_string(d.senderID) +" "+ d.msg +"\n";
-					thiz -> count++;
+	void pp2pSend(myhost target, string msg){
+		task t;
+		t.target = target;
+		t.msg = msg;
+		cout << "pp2pSend" << endl;
+		taskQueue_mtx.lock();
+		cout << "taskQueue.push" << endl;
+		taskQueue.push(t);
+		taskQueue_mtx.unlock();		
+	}
+	void pp2pDeliver(){
+		while(!stop){
+			deliver d = sp2pDeliver();
+			if(d.ackflag == '0'){
+				string msgVal = to_string(d.senderID) + d.msg;				
+				if(!delivers.count(msgVal)){
+					delivers.insert(msgVal);
+					log += "d " + to_string(d.senderID) +" "+ d.msg +"\n"; 
+					count++;
 				}				
 			}
 
 		}
-		cout << "pp2pDeliver finish!"<< endl;
 		
 	}
 

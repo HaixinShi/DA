@@ -32,7 +32,22 @@ static void stop(int) {
   std::cout << "exit.\n";
   exit(0);
 }
-
+static void startSendingTask (myhost target, int i, int m){
+    int send_seq = 1;
+    for(int j = 0; j < m; j++){
+      //prepare messages
+      /*
+      string seq = to_string(send_seq);      
+      char* sendmsg = new char[seq.size()+1];
+      for(unsigned int i = 0; i<seq.size(); i++){
+        sendmsg[i] = seq[i];
+      }     
+      sendmsg[seq.size()]='\0';  
+*/
+      pl -> pp2pSend(target, to_string(send_seq));
+      send_seq ++;    
+    } 
+}
 int main(int argc, char **argv) {
   signal(SIGTERM, stop);
   signal(SIGINT, stop);
@@ -86,7 +101,7 @@ int main(int argc, char **argv) {
 
   std::cout << "Doing some initialization...\n\n";
   
-  pl = new pp2p(parser.id(), &myhosts, parser.outputPath(), 0);
+  pl = new pp2p(parser.id(), &myhosts, parser.outputPath());
   
   ifstream configFile(parser.configPath());
   string line;
@@ -101,7 +116,7 @@ int main(int argc, char **argv) {
 
   cout << "m: " << to_string(m) << endl;
   cout << "i: " << to_string(i) << endl;
-  
+  /*
   if(myhosts[i-1].id == parser.id()){//index is ID
     // I am the receiver!
     cout << "receive thread init start" << endl;
@@ -124,9 +139,42 @@ int main(int argc, char **argv) {
     deliverthread.join();
     sendthread.join(); 
     cout << "join finish" << endl;
-  }
+  }*/
+
+
   
   std::cout << "Broadcasting and delivering messages...\n\n";
+
+  if(myhosts[i-1].id != parser.id()){
+    thread start(startSendingTask, myhosts[i-1], i, m);
+    pl -> startPerfectLink();
+    start.join();    
+  }    
+  else{
+    pl -> startPerfectLink();
+  }
+
+  /*
+  int send_seq = 1;
+  if(myhosts[i-1].id != parser.id()){//I am the sender
+
+    for(int j = 0; j < m; j++){
+      //prepare messages
+      string seq = to_string(send_seq);      
+      char* sendmsg = new char[seq.size()+1];
+      for(unsigned int i = 0; i<seq.size(); i++){
+        sendmsg[i] = seq[i];
+      }     
+      sendmsg[seq.size()]='\0';  
+
+      //perfect link send 
+      pl -> pp2pSend(myhosts[i-1], sendmsg);
+      
+      send_seq ++;    
+    }    
+  }*/
+
+
 
   // After a process finishes broadcasting,
   // it waits forever for the delivery of messages.
