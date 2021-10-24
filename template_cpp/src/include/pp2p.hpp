@@ -1,5 +1,4 @@
 #include "sp2p.hpp"
-#include <set>
 using namespace std;
 
 class pp2p : public sp2p{
@@ -19,9 +18,7 @@ public:
 		task t;
 		t.target = target;
 		t.msg = msg;
-		cout << "pp2pSend" << endl;
 		taskQueue_mtx.lock();
-		cout << "taskQueue.push" << endl;
 		taskQueue.push(t);
 		taskQueue_mtx.unlock();		
 	}
@@ -33,7 +30,6 @@ public:
 				if(!delivers.count(msgVal)){
 					delivers.insert(msgVal);
 					log += "d " + to_string(d.senderID) +" "+ d.msg +"\n"; 
-					count++;
 				}				
 			}
 

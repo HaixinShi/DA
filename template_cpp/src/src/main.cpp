@@ -7,8 +7,7 @@
 #include "pp2p.hpp"
 
 pp2p* pl;
-long int start_time;
-long int end_time;
+
 static void stop(int) {
   // reset signal handlers to default
   signal(SIGTERM, SIG_DFL);
@@ -18,32 +17,19 @@ static void stop(int) {
   std::cout << "Immediately stopping network packet processing.\n";
   pl -> stop = true;
   close(pl -> s);
-  end_time = clock();
   
   // write/flush output file if necessary 
   std::cout << "Writing output.\n";
   pl -> logfuction();
-  std::cout << "messages:"<<to_string(pl->count)<<endl;
-  float throughput = static_cast<float>(pl->count)/static_cast<float>(end_time - start_time)*static_cast<float>(CLOCKS_PER_SEC);
-  std::cout << "throughput:"<<to_string(throughput)<<" messages/second"<<endl;
   
-
   // exit directly from signal handler
-  std::cout << "exit.\n";
   exit(0);
 }
 static void startSendingTask (myhost target, int i, int m){
+    //it could be run a thread. 
+    //This function is deviced for not blocking main thread early
     int send_seq = 1;
     for(int j = 0; j < m; j++){
-      //prepare messages
-      /*
-      string seq = to_string(send_seq);      
-      char* sendmsg = new char[seq.size()+1];
-      for(unsigned int i = 0; i<seq.size(); i++){
-        sendmsg[i] = seq[i];
-      }     
-      sendmsg[seq.size()]='\0';  
-*/
       pl -> pp2pSend(target, to_string(send_seq));
       send_seq ++;    
     } 
@@ -59,7 +45,6 @@ int main(int argc, char **argv) {
   Parser parser(argc, argv);
   parser.parse();
 
-  start_time = clock();//timer start!
   hello();
   std::cout << std::endl;
 
@@ -116,65 +101,19 @@ int main(int argc, char **argv) {
 
   cout << "m: " << to_string(m) << endl;
   cout << "i: " << to_string(i) << endl;
-  /*
-  if(myhosts[i-1].id == parser.id()){//index is ID
-    // I am the receiver!
-    cout << "receive thread init start" << endl;
-    thread deliverthread(pl->pp2pDeliver, pl);
-    cout << "receive thread init finish" << endl;
-    deliverthread.join();     
-  }
-  else{
-    pl -> sendProcess = true;
-
-    cout << "pp2p sending thread init start" << endl;
-    thread sendthread(pl -> pp2pSend, pl, myhosts[i-1], m);
-    cout << "pp2p sending thread init finish" << endl;
-    //I need to receive ack!!!
-    cout << "receive thread init start" << endl;
-    thread deliverthread(pl->pp2pDeliver, pl);
-    cout << "pp2p sending thread init finish" << endl;
-
-    //pl->pp2pDeliver(pl);
-    deliverthread.join();
-    sendthread.join(); 
-    cout << "join finish" << endl;
-  }*/
-
-
   
   std::cout << "Broadcasting and delivering messages...\n\n";
 
   if(myhosts[i-1].id != parser.id()){
+    //this part is for senders
     thread start(startSendingTask, myhosts[i-1], i, m);
     pl -> startPerfectLink();
     start.join();    
   }    
   else{
+    //this part is for the receiver
     pl -> startPerfectLink();
   }
-
-  /*
-  int send_seq = 1;
-  if(myhosts[i-1].id != parser.id()){//I am the sender
-
-    for(int j = 0; j < m; j++){
-      //prepare messages
-      string seq = to_string(send_seq);      
-      char* sendmsg = new char[seq.size()+1];
-      for(unsigned int i = 0; i<seq.size(); i++){
-        sendmsg[i] = seq[i];
-      }     
-      sendmsg[seq.size()]='\0';  
-
-      //perfect link send 
-      pl -> pp2pSend(myhosts[i-1], sendmsg);
-      
-      send_seq ++;    
-    }    
-  }*/
-
-
 
   // After a process finishes broadcasting,
   // it waits forever for the delivery of messages.
