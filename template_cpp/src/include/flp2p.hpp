@@ -44,6 +44,9 @@ public:
 	void logfuction(){
 		ofstream out;
 		out.open(this->output);
+		if(log.length()>0){
+			log.erase(log.end()-1);
+		}
 		out << log;
 		out.flush();
 		out.close();
