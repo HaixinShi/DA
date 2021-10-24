@@ -127,7 +127,7 @@ public:
 		}
 
     	if(ret == -1){
-    		cout << "UDPSend fail!"<< endl;
+    		cout << "UDPSend fail!--"<< strerror(errno)<< endl;
     		return;
     	}
 	}
@@ -145,7 +145,7 @@ public:
 	    char buffer[12];
 	    ssize_t ret = recvfrom(s, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr *>(&addr), &addr_len);
 	    if(ret == -1){
-	    	cout << "errors in UDPReceive!" << endl;
+	    	cout << "errors in UDPReceive!--"<< strerror(errno) << endl;
 	    }
 	    size_t msglen = strlen(buffer); 
 	    char ackflag = buffer[msglen-1];
