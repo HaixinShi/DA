@@ -25,7 +25,7 @@ static void stop(int) {
   // exit directly from signal handler
   exit(0);
 }
-static void startSendingTask (myhost target, int i, int m){
+static void startSendingTask (myhost target, int m){
     //it could be run a thread. 
     //This function is deviced for not blocking main thread early
     int send_seq = 1;
@@ -106,7 +106,7 @@ int main(int argc, char **argv) {
 
   if(myhosts[i-1].id != parser.id()){
     //this part is for senders
-    thread start(startSendingTask, myhosts[i-1], i, m);
+    thread start(startSendingTask, myhosts[i-1], m);
     pl -> startPerfectLink();
     start.join();    
   }    

@@ -32,8 +32,7 @@ that is implemented by using UDP in this project
 
 */
 public:
-	bool connected = false;//for sending process
-	bool p2p = true;// wither it is (1 vs 1) or (1 vs n)  
+	bool connected = false;//for sending process 
 	unsigned long myID;//Process ID
 	vector<myhost> hosts;//It stores the global information of processes
 	string output;//log file address
@@ -108,23 +107,7 @@ public:
 
 	    //send messages
 	    ssize_t ret = 0;
-		if( p2p ){
-			// 1 VS 1
-			if(!connected) {
-				//specify address
-				//for send process, apply connect function to set target process for sending messages
-				//so in this case, we can improve performance
-				connect(s, reinterpret_cast<struct sockaddr *>(&addr), addr_len);			
-				connected = true;
-			}	     
-
-	    	ret = send(s, sendmsg, sizeof(sendmsg), 0);
-		}
-		else{
-			//1 VS N, not 
-			connected = false;
-			ret = sendto(s, sendmsg, sizeof(sendmsg), 0, reinterpret_cast<struct sockaddr *>(&addr), addr_len);
-		}
+	    ret = sendto(s, sendmsg, sizeof(sendmsg), 0, reinterpret_cast<struct sockaddr *>(&addr), addr_len);
 
     	if(ret == -1){
     		cout << "UDPSend fail!--"<< strerror(errno)<< endl;
