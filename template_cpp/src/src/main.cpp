@@ -4,10 +4,9 @@
 #include "parser.hpp"
 #include "hello.h"
 #include <signal.h>
-#include "pp2p.hpp"
+#include "urb.hpp"
 
-pp2p* pl;
-
+urb* urbPtr;
 static void stop(int) {
   // reset signal handlers to default
   signal(SIGTERM, SIG_DFL);
@@ -15,22 +14,24 @@ static void stop(int) {
 
   // immediately stop network packet processing
   std::cout << "Immediately stopping network packet processing.\n";
-  pl -> stop = true;
-  close(pl -> s);
+  urbPtr -> stop = true;
+  urbPtr -> pl -> stop = true;
+  close(urbPtr -> pl -> s);
   
   // write/flush output file if necessary 
   std::cout << "Writing output.\n";
-  pl -> logfuction();
-  
+  urbPtr -> logfunction();
   // exit directly from signal handler
   exit(0);
 }
-static void startSendingTask (myhost target, int m){
-    //it could be run a thread. 
+
+static void startSendingTask (int m){
+    //it could run a thread. 
     //This function is deviced for not blocking main thread early
     int send_seq = 1;
     for(int j = 0; j < m; j++){
-      pl -> pp2pSend(target, to_string(send_seq));
+      cout << "startSendingTask" << endl;
+      urbPtr -> urbBroadcast(to_string(send_seq));
       send_seq ++;    
     } 
 }
@@ -86,7 +87,7 @@ int main(int argc, char **argv) {
 
   std::cout << "Doing some initialization...\n\n";
   
-  pl = new pp2p(parser.id(), &myhosts, parser.outputPath());
+  urbPtr = new urb(parser.id(), &myhosts, parser.outputPath());
   
   ifstream configFile(parser.configPath());
   string line;
@@ -95,26 +96,15 @@ int main(int argc, char **argv) {
   istringstream iss(line);
 
   int m;
-  int i;
 
-  iss >> m >> i; 
+  iss >> m; 
 
   cout << "m: " << to_string(m) << endl;
-  cout << "i: " << to_string(i) << endl;
   
   std::cout << "Broadcasting and delivering messages...\n\n";
-
-  if(myhosts[i-1].id != parser.id()){
-    //this part is for senders
-    thread start(startSendingTask, myhosts[i-1], m);
-    pl -> startPerfectLink();
-    start.join();    
-  }    
-  else{
-    //this part is for the receiver
-    pl -> startPerfectLink();
-  }
-
+  thread start(startSendingTask, m);
+  urbPtr -> starturb();
+  start.join();
   // After a process finishes broadcasting,
   // it waits forever for the delivery of messages.
   while (true) {

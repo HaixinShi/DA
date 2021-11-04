@@ -111,7 +111,7 @@ public:
 	    //send messages
 	    ssize_t ret = 0;
 	    ret = sendto(s, sendmsg, sizeof(sendmsg), 0, reinterpret_cast<struct sockaddr *>(&addr), addr_len);
-
+	    cout << "UDP Send:"<< sendmsg << endl;
     	if(ret == -1){
     		cout << "UDPSend fail!--"<< strerror(errno)<< endl;
     		return;
@@ -130,6 +130,7 @@ public:
 	    
 	    char buffer[12];
 	    ssize_t ret = recvfrom(s, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr *>(&addr), &addr_len);
+	    cout << "udp receive:" << buffer << endl;
 	    if(ret == -1){
 	    	cout << "errors in UDPReceive!--"<< strerror(errno) << endl;
 	    }

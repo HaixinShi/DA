@@ -27,7 +27,7 @@ public:
 					if(!sended.count(msgVal)){
 						sended.insert(msgVal);
 						string m(t.msg);
-						log += "b " + m + "\n";
+						//log += "b " + m + "\n";
 					}
 				}
 				ack_mtx.unlock();							

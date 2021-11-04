@@ -4,17 +4,16 @@ using namespace std;
 class pp2p : public sp2p{
 private:
 	set<string> delivers;
+
 public:
+	thread* sendthreadPtr;
 	pp2p(unsigned long myID, vector<myhost>* hosts, const char* output): sp2p(myID, hosts, output){
 
 	}
 	void startPerfectLink(){
-		thread sendthread(&sp2p::sp2pSend, this);
-		//thread recvthread(&pp2p::pp2pDeliver, this);
-		sendthread.join();
-		//recvthread.join();
+		sendthreadPtr = new thread(&sp2p::sp2pSend, this);
 	}
-	void pp2pSend(myhost target, string msg){
+	void pp2pSend(myhost& target, string msg){
 		task t;
 		t.target = target;
 		t.msg = msg;
@@ -33,7 +32,8 @@ public:
 				return d;
 			}				
 		}
-		return NULL;		
+		d.msg = "N";
+		return d;		
 	}
 
 };
