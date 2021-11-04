@@ -30,7 +30,6 @@ static void startSendingTask (int m){
     //This function is deviced for not blocking main thread early
     int send_seq = 1;
     for(int j = 0; j < m; j++){
-      cout << "startSendingTask" << endl;
       urbPtr -> urbBroadcast(to_string(send_seq));
       send_seq ++;    
     } 

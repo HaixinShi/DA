@@ -25,7 +25,6 @@ public:
 
 	mutex loglock;
 	mutex pendinglock;
-	mutex acklock;
 	void logfunction(){
 		ofstream out;
 		out.open(this->output);
@@ -60,18 +59,14 @@ public:
 		
 	}
 	void starturb(){
-		cout << "starturb 1"<< endl;
+
 		pl -> startPerfectLink();//start sending
 		//start listenning
 		thread urbDeliverThread(&urb::urbDeliver, this);
-		thread urbTrytoDeliverThread(&urb::urbTrytoDeliver, this);
-		cout << "starturb 2"<< endl;
+
 		//join the threads
 		pl -> sendthreadPtr -> join();
-		cout << "starturb 3"<< endl;
-		urbDeliverThread.join();
-		cout << "starturb 4"<< endl;
-		urbTrytoDeliverThread.join();		
+		urbDeliverThread.join();		
 	}
 
 
@@ -91,67 +86,67 @@ public:
 		message m;
 		m.senderID = myID;
 		m.body = msg;
-		string msgVal = serializeMsg(m);
+
 		pendinglock.lock();
-		if(!pending.count(msgVal))
-			pending.insert(msgVal);
+		if(!pending.count(myID + msg))
+			pending.insert(myID + msg);
 		pendinglock.unlock();
-		bebBroadcast(msgVal);
+		bebBroadcast(serializeMsg(m));
 	}
 	bool canDeliver(string msg){
 		unsigned int sum = 0;
 		for(unsigned int i = 0; i < hosts->size(); i++){
-			acklock.lock();
 			if(ack.count(msg)&&ack[msg][i]){
 				++sum;
 			}
-			acklock.unlock();
 		}
-		return 2*sum > hosts->size();
+		cout << "sum:" << sum << endl;
+		if(2*sum > hosts->size())
+			return true;
+		else
+			return false;
 	}
 	void urbDeliver(){
 		while(!stop){
 			deliver d = bebDeliver();
-			if(d.msg != "N"){			
-				acklock.lock();
-				if(ack.find(d.msg)!= ack.end()){
-					if(ack[d.msg][d.senderID - 1]==0){
-						ack[d.msg][d.senderID - 1]=1;
+			if(d.msg != "N"){
+				cout <<"urbDeliver:"<<d.msg<<endl;
+				string msgVal = d.msg;
+				if(ack.find(msgVal)!= ack.end()){
+					if(ack[msgVal][d.senderID]==0){
+						ack[msgVal][d.senderID]=1;
 					}			
 				}
 				else{
 					vector<int> temp(hosts->size(),0);
 					temp[d.senderID-1] = 1;
-					ack[d.msg] = temp; 
+					ack[msgVal] = temp; 
 				}
-				acklock.unlock();
-
 				pendinglock.lock();
-				if(!pending.count(d.msg)){
-					pending.insert(d.msg);
-					bebBroadcast(d.msg);
+				if(!pending.count(msgVal)){
+					pending.insert(msgVal);
+					bebBroadcast(msgVal);
 				}
 				pendinglock.unlock();
 			}
+			urbTrytoDeliver();
 		}
 	}
 	void urbTrytoDeliver(){
-		while(!stop){
-			if(pendinglock.try_lock()){
-				for(set<string>::iterator it=pending.begin() ;it!=pending.end();it++){
-					string msgVal = *it;
-					cout << "urbTrytoDeliver pending:" << msgVal << endl;
-					if(canDeliver(msgVal) && !delivers.count(msgVal)){
-					//if(!delivers.count(msgVal)){	
-						delivers.insert(msgVal);
-						message m = deserializeMsg(msgVal);
-						loglock.lock();
-						log += "d " + m.senderID +" "+ m.body +"\n";
-						loglock.unlock();			
-					}
+		if(pendinglock.try_lock()){
+			for(set<string>::iterator it=pending.begin() ;it!=pending.end();it++){
+				string msgVal = *it;
+				cout << "urbTrytoDeliver pending:" << msgVal << endl;
+				if(canDeliver(msgVal) && !delivers.count(msgVal)){	
+				//if(!delivers.count(msgVal)){		
+					delivers.insert(msgVal);
+					message m = deserializeMsg(msgVal);
+					loglock.lock();
+					log += "d " + m.senderID +" "+ m.body +"\n";
+					loglock.unlock();			
 				}
-				pendinglock.unlock();
-			}	
-		}
+			}
+			pendinglock.unlock();
+		}	
 	}
 };

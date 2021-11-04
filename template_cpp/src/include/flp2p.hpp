@@ -111,7 +111,6 @@ public:
 	    //send messages
 	    ssize_t ret = 0;
 	    ret = sendto(s, sendmsg, sizeof(sendmsg), 0, reinterpret_cast<struct sockaddr *>(&addr), addr_len);
-	    cout << "UDP Send:"<< sendmsg << endl;
     	if(ret == -1){
     		cout << "UDPSend fail!--"<< strerror(errno)<< endl;
     		return;
