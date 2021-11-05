@@ -40,7 +40,7 @@ public:
 	mutex ack_mtx;
 	string log;
 	int s;
-	bool stop = false;
+	bool stopflag = false;
 	void logfuction(){
 		ofstream out;
 		out.open(this->output);
@@ -129,7 +129,6 @@ public:
 	    
 	    char buffer[12];
 	    ssize_t ret = recvfrom(s, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr *>(&addr), &addr_len);
-	    cout << "udp receive:" << buffer << endl;
 	    if(ret == -1){
 	    	cout << "errors in UDPReceive!--"<< strerror(errno) << endl;
 	    }

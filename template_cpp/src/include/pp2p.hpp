@@ -23,17 +23,16 @@ public:
 	}
 	deliver pp2pDeliver(){
 		deliver d = sp2pDeliver();
-		cout << "try to pp2pDeliver:"<< d.msg << endl;
 		//while true
 		if(d.ackflag == '0'){
-			cout << "pp2pDeliver:"<< d.msg << endl;
 			string msgVal = to_string(d.senderID) + d.msg;				
 			if(!delivers.count(msgVal)){
+				cout << "pp2pDeliver:"<< d.msg << endl;
 				delivers.insert(msgVal);
 				return d;
 			}				
 		}
-		d.msg = "N";
+		d.msg = "";
 		return d;		
 	}
 

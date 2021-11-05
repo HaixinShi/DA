@@ -7,15 +7,22 @@ struct fifoMsg
 };
 class fifo
 {
-private:
+public:
 	int lsn = 0;
 	set<string> pending;
-	vector<int> next = temp(hosts->size(),1);
 	string log;
 	mutex loglock;
-public:
-	bool stop = false;
+	string myID;
+	vector<myhost>* hosts;
+	map<string,int> next;
+	bool stopflag = false;
+	const char* output;
 	urb* urbPtr;
+	void startfifo(){
+		thread fifoDelibverThread(&fifo::fifoDelibver, this);
+		urbPtr -> starturb();
+		fifoDelibverThread.join();
+	}
 	void logfunction(){
 		ofstream out;
 		out.open(this->output);
@@ -30,7 +37,7 @@ public:
 		cout << "I finish logging!"<< endl;
 	}
 	string serializeMsg(fifoMsg m){
-		string msg = m.seq + "," + m.msg;
+		string msg = m.seq + "," + m.fifomsg;
 		return msg;
 	}
 	fifoMsg deserializeMsg(string m){
@@ -44,6 +51,9 @@ public:
 		this -> myID = to_string(myID);
 		this -> hosts = hosts;
 		this -> output = output;
+		for(unsigned int i = 0; i < hosts->size();i++){
+			next[to_string(i+1)] = 1;
+		}
 		urbPtr = new urb(myID, hosts, output);		
 	}
 	void fifoBroadcast(string msg){
@@ -57,18 +67,20 @@ public:
 		urbPtr -> urbBroadcast(serializeMsg(m));
 	}
 	void fifoDelibver(){
-		while(!stop){
-			urbMsg urbm = urbTrytoDeliver();
-			if(m.body!=""){
-				pending.insert(urbPtr->serializeMsg(urbm));
-				fifoMsg fifom = deserializeMsg(urbm.body);
+		while(!stopflag){
+			urbMsg urbm = urbPtr->urbTrytoDeliver();
+			if(urbm.body!=""){
+				cout << "fifoDelibver get urbm" << urbPtr->serializeMsg(urbm) << endl;
+				pending.insert(urbPtr->serializeMsg(urbm));//senderID+seq+m
+				fifoMsg fifom = deserializeMsg(urbm.body);//seq+m
 				for(set<string>::iterator it=pending.begin() ;it!=pending.end();it++){
 					string msgVal = *it;
-					urbMsg temp = urbPtr->deserializeMsg(msgVal);
-					string senderID = temp.senderID
-					string seq = deserializeMsg(temp.body).seq;
-					if(next[stoi(senderID) - 1]==seq){
-						next[stoi(senderID) - 1]++;
+					cout << "fifo pending:"<< msgVal << endl;
+					urbMsg temp = urbPtr->deserializeMsg(msgVal);//senderID+seq+m
+					string senderID = temp.senderID;
+					string seq = deserializeMsg(temp.body).seq;//candidate seq
+					if(to_string(next[senderID])==seq){
+						next[senderID]++;
 						pending.erase(it);
 						loglock.lock();
 						log += "d " + senderID+" "+ deserializeMsg(temp.body).fifomsg +"\n";

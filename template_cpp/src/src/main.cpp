@@ -4,9 +4,9 @@
 #include "parser.hpp"
 #include "hello.h"
 #include <signal.h>
-#include "urb.hpp"
+#include "fifo.hpp"
 
-urb* urbPtr;
+fifo* fifoPtr;
 static void stop(int) {
   // reset signal handlers to default
   signal(SIGTERM, SIG_DFL);
@@ -14,13 +14,14 @@ static void stop(int) {
 
   // immediately stop network packet processing
   std::cout << "Immediately stopping network packet processing.\n";
-  urbPtr -> stop = true;
-  urbPtr -> pl -> stop = true;
-  close(urbPtr -> pl -> s);
+  fifoPtr -> stopflag = true;
+  fifoPtr -> urbPtr -> stopflag = true;
+  fifoPtr -> urbPtr -> pl -> stopflag = true;
+  close(fifoPtr ->urbPtr -> pl -> s);
   
   // write/flush output file if necessary 
   std::cout << "Writing output.\n";
-  urbPtr -> logfunction();
+  fifoPtr -> logfunction();
   // exit directly from signal handler
   exit(0);
 }
@@ -30,7 +31,7 @@ static void startSendingTask (int m){
     //This function is deviced for not blocking main thread early
     int send_seq = 1;
     for(int j = 0; j < m; j++){
-      urbPtr -> urbBroadcast(to_string(send_seq));
+      fifoPtr -> fifoBroadcast(to_string(send_seq));
       send_seq ++;    
     } 
 }
@@ -86,7 +87,7 @@ int main(int argc, char **argv) {
 
   std::cout << "Doing some initialization...\n\n";
   
-  urbPtr = new urb(parser.id(), &myhosts, parser.outputPath());
+  fifoPtr = new fifo(parser.id(), &myhosts, parser.outputPath());
   
   ifstream configFile(parser.configPath());
   string line;
@@ -102,7 +103,7 @@ int main(int argc, char **argv) {
   
   std::cout << "Broadcasting and delivering messages...\n\n";
   thread start(startSendingTask, m);
-  urbPtr -> starturb();
+  fifoPtr -> startfifo();
   start.join();
   // After a process finishes broadcasting,
   // it waits forever for the delivery of messages.

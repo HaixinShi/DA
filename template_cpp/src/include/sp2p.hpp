@@ -11,7 +11,7 @@ public:
 
 	}
 	void sp2pSend(){
-		while(!stop){
+		while(!stopflag){
 			taskQueue_mtx.lock();
 			if(!taskQueue.empty()){
 				task t = taskQueue.front();

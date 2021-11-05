@@ -9,7 +9,6 @@ struct urbMsg{
 };
 
 class urb{
-
 public:
 	map<string, vector<int>> ack;
 	set<string> delivers;
@@ -19,23 +18,10 @@ public:
 	pp2p* pl;
 	string myID;
 	vector<myhost>* hosts;
-	bool stop = false;
+	bool stopflag = false;
 	const char* output;
 	mutex pendinglock;
 	mutex acklock;
-	void logfunction(){
-		ofstream out;
-		out.open(this->output);
-		loglock.lock();
-		if(log.length()>0){
-			log.erase(log.end()-1);
-		}
-		out << log;
-		loglock.unlock();
-		out.flush();
-		out.close();
-		cout << "I finish logging!"<< endl;
-	}	
 
 	string serializeMsg(urbMsg m){
 		string msg = m.senderID + ","+m.body;
@@ -57,18 +43,13 @@ public:
 		
 	}
 	void starturb(){
-		cout << "starturb 1"<< endl;
-		pl -> startPerfectLink();//start sending
+		//start sending
+		pl -> startPerfectLink();
 		//start listenning
 		thread urbDeliverThread(&urb::urbDeliver, this);
-		thread urbTrytoDeliverThread(&urb::urbTrytoDeliver, this);
-		cout << "starturb 2"<< endl;
 		//join the threads
 		pl -> sendthreadPtr -> join();
-		cout << "starturb 3"<< endl;
-		urbDeliverThread.join();
-		cout << "starturb 4"<< endl;
-		urbTrytoDeliverThread.join();		
+		urbDeliverThread.join();	
 	}
 
 
@@ -77,6 +58,7 @@ public:
 			pl -> pp2pSend((*hosts)[j], msg);
 		}
 	}
+
 	deliver bebDeliver(){
 		return 	pl -> pp2pDeliver();			
 	}
@@ -104,9 +86,10 @@ public:
 		return 2*sum > hosts->size();
 	}
 	void urbDeliver(){
-		while(!stop){
+		while(!stopflag){
+			cout << "enter urbDeliver" << endl;
 			deliver d = bebDeliver();
-			if(d.msg != "N"){			
+			if(d.msg != ""){			
 				acklock.lock();
 				if(ack.find(d.msg)!= ack.end()){
 					if(ack[d.msg][d.senderID - 1]==0){
@@ -122,26 +105,33 @@ public:
 
 				pendinglock.lock();
 				if(!pending.count(d.msg)){
+					cout << "urbDeliver_pending:"<< d.msg << endl;
 					pending.insert(d.msg);
 					bebBroadcast(d.msg);
 				}
 				pendinglock.unlock();
 			}
+			else{
+				cout << "urbDeliver get empty msg" << endl;
+			}
 		}
 	}
 	urbMsg urbTrytoDeliver(){
+		//cout << "enter urbTrytoDeliver" << endl;
 		if(pendinglock.try_lock()){
 			for(set<string>::iterator it=pending.begin() ;it!=pending.end();it++){
 				string msgVal = *it;
 				cout << "urbTrytoDeliver pending:" << msgVal << endl;
-				if(canDeliver(msgVal) && !delivers.count(msgVal)){
+				//if(canDeliver(msgVal) && !delivers.count(msgVal)){
 					delivers.insert(msgVal);
+					cout << "urb delivered:"<< msgVal << endl;
 					return deserializeMsg(msgVal);			
-				}
+				//}
 			}
-			pendinglock.unlock();
+			pendinglock.unlock();	
+		}
 		urbMsg fail;
 		fail.body = "";
-		return fail;	
+		return fail;
 	}
 };
