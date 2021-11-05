@@ -3,7 +3,7 @@
 #include <sstream>
 using namespace std;
 
-struct message{
+struct urbMsg{
 	string senderID;
 	string body;
 };
@@ -21,9 +21,6 @@ public:
 	vector<myhost>* hosts;
 	bool stop = false;
 	const char* output;
-	string log;
-
-	mutex loglock;
 	mutex pendinglock;
 	mutex acklock;
 	void logfunction(){
@@ -40,12 +37,12 @@ public:
 		cout << "I finish logging!"<< endl;
 	}	
 
-	string serializeMsg(message m){
+	string serializeMsg(urbMsg m){
 		string msg = m.senderID + ","+m.body;
 		return msg;
 	}
-	message deserializeMsg(string m){
-		message msg;
+	urbMsg deserializeMsg(string m){
+		urbMsg msg;
 		size_t split = m.find(",");
 		msg.senderID = m.substr(0, split);
 		msg.body = m.substr(split + 1, m.size()- 1 -split);
@@ -85,10 +82,7 @@ public:
 	}
 
 	void urbBroadcast(string msg){
-		loglock.lock();
-		log += "b " + msg + "\n";
-		loglock.unlock();
-		message m;
+		urbMsg m;
 		m.senderID = myID;
 		m.body = msg;
 		string msgVal = serializeMsg(m);
@@ -135,23 +129,19 @@ public:
 			}
 		}
 	}
-	void urbTrytoDeliver(){
-		while(!stop){
-			if(pendinglock.try_lock()){
-				for(set<string>::iterator it=pending.begin() ;it!=pending.end();it++){
-					string msgVal = *it;
-					cout << "urbTrytoDeliver pending:" << msgVal << endl;
-					if(canDeliver(msgVal) && !delivers.count(msgVal)){
-					//if(!delivers.count(msgVal)){	
-						delivers.insert(msgVal);
-						message m = deserializeMsg(msgVal);
-						loglock.lock();
-						log += "d " + m.senderID +" "+ m.body +"\n";
-						loglock.unlock();			
-					}
+	urbMsg urbTrytoDeliver(){
+		if(pendinglock.try_lock()){
+			for(set<string>::iterator it=pending.begin() ;it!=pending.end();it++){
+				string msgVal = *it;
+				cout << "urbTrytoDeliver pending:" << msgVal << endl;
+				if(canDeliver(msgVal) && !delivers.count(msgVal)){
+					delivers.insert(msgVal);
+					return deserializeMsg(msgVal);			
 				}
-				pendinglock.unlock();
-			}	
-		}
+			}
+			pendinglock.unlock();
+		urbMsg fail;
+		fail.body = "";
+		return fail;	
 	}
 };
