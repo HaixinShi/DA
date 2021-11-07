@@ -27,7 +27,6 @@ public:
 		if(d.ackflag == "0"){
 			string msgVal = to_string(d.senderID) + d.msg;				
 			if(!delivers.count(msgVal)){
-				cout << "pp2pDeliver:"<< d.msg << endl;
 				delivers.insert(msgVal);
 				return d;
 			}				

@@ -22,7 +22,7 @@ public:
 	bool stopflag = false;
 	const char* output;
 	mutex pendinglock;	
-
+	mutex acklock;
 	string serializeMsg(urbMsg m){
 		string msg = m.senderID + ","+m.body;
 		return msg;
@@ -55,7 +55,6 @@ public:
 
 
 	void bebBroadcast(string msg){
-		//cout << "bebBroadcast:" << msg<< endl;
 		for(unsigned int j = 0; j < hosts-> size(); j++){
 			pl -> pp2pSend((*hosts)[j], msg);
 		}
@@ -68,79 +67,59 @@ public:
 		urbMsg m;
 		m.senderID = myID;
 		m.body = msg;
-		string msgVal = serializeMsg(m);//original sender + m
+		string msgVal = serializeMsg(m);
 		
-		//pendinglock.lock();
-		//pending.insert(msgVal);
-		//pendinglock.unlock();
+		pendinglock.lock();
+		pending.insert(msgVal);
+		pendinglock.unlock();
 		
 		bebBroadcast(msgVal);
 	}
 	bool canDeliver(string msg){
-		//cout << "canDeliver-1" << endl;
-		if(ack.find(msg)!= ack.end()){
-			//cout << "canDeliver-2" << endl;
-			//cout << "ack_size:"+to_string(ack[msg].size())<< endl;
-			//cout << "canDeliver-3" << endl;
-			return 2*(ack[msg].size()) > hosts->size();
-		}
-		else{
-			return false;
-		}
+			acklock.lock();
+			bool flag = false;
+			if(ack.find(msg)!= ack.end())
+				flag = 2*(ack[msg].size()) > hosts->size();
+			acklock.unlock();
+			return flag;
 	}
 	void urbDeliver(){
 		while(!stopflag){
 			deliver d = bebDeliver();
-			if(d.msg != ""){
-				cout << "urbDeliver-3" << endl;
-				cout << "urbDeliver:"<<d.msg << endl;
-				cout << "real senderID: " << d.senderID <<endl;	
+			if(d.msg != ""){	
 				string msgVal = d.msg;
-				cout << "urbDeliver-4" << endl;
+				acklock.lock();
 				if(ack.find(d.msg)!= ack.end()){
-					ack[d.msg].insert(d.senderID);	
-					cout << "urbDeliver-5-1" << endl;		
+					ack[d.msg].insert(d.senderID);			
 				}
 				else{
-					cout << "urbDeliver-5-2" << endl;
 					set<unsigned long> temp;
 					temp.insert(d.senderID);
 					ack[d.msg] = temp;
 				}
-				cout << "urbDeliver-6" << endl;
-				//pendinglock.lock();
+				acklock.unlock();
+				pendinglock.lock();
 				if(!pending.count(d.msg)){
-					cout << "pending insert:" << d.msg << endl;
 					pending.insert(d.msg);//original sender + msg
 					bebBroadcast(d.msg);
 				}
-				//pendinglock.unlock();
-				cout << "urbDeliver-7" << endl;
+				pendinglock.unlock();
 			}
 		}
 	}
 	string urbTrytoDeliver(){
-		if(true){//pendinglock.try_lock()
-			//cout << "urbTrytoDeliver-2" << endl;
+		if(pendinglock.try_lock()){
 			for(set<string>::iterator it=pending.begin() ;it!=pending.end();it++){
 				string msgVal = *it;
-				//cout << (*it) << endl;
-				//if(canDeliver(msgVal) && !delivers.count(msgVal)){	
-				if(!delivers.count(msgVal)){
-					//cout << "1---urbTrytoDeliver pending:" << msgVal << endl;	
-					//cout << "2---urbTrytoDeliver pending:" << msgVal << endl;		
-					cout << "urbTrytoDeliver-3" << endl;
+				if(canDeliver(msgVal) && !delivers.count(msgVal)){	
 					delivers.insert(msgVal);
-					cout << "urbTrytoDeliver-4" << endl;
 					urbMsg urbm = deserializeMsg(msgVal);
-					cout << "2---urbTrytoDeliver pending:" << urbm.body << endl;
-					cout << "urbTrytoDeliver-5" << endl;
+					pendinglock.unlock();
 					return 	urbm.body;			
 				}
 			}
-			//pendinglock.unlock();
+			pendinglock.unlock();
 		}
-		//cout << "urbTrytoDeliver-6" << endl;
 		return "";	
 	}
 };
