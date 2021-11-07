@@ -12,7 +12,7 @@ using namespace std;
 struct deliver{
 	string msg;
 	unsigned long senderID;
-	char ackflag;
+	string ackflag;
 };
 struct myhost{
 	unsigned long id;
@@ -23,7 +23,10 @@ struct task{
 	myhost target;
 	string msg;
 };
-
+struct udpMsg{
+	string ackflag;
+	string udpmsg;
+};
 class flp2p {
 /*
 This class is for fair-loss link, 
@@ -51,6 +54,17 @@ public:
 		out.flush();
 		out.close();
 		cout << "I finish logging!"<< endl;
+	}
+	string serializeMsg(udpMsg m){
+		string msg =  m.ackflag + ","+ m.udpmsg;
+		return msg;
+	}
+	udpMsg deserializeMsg(string m){
+		udpMsg msg;
+		size_t split = m.find(",");
+		msg.ackflag = m.substr(0, split);
+		msg.udpmsg = m.substr(split + 1, m.size()- 1 -split);
+		return msg;
 	}
 	//creator funtion of flp2p class
 	flp2p(unsigned long myID, vector<myhost>* hosts, const char* output){
@@ -91,15 +105,17 @@ public:
 			cout<<"could not create socket while sending";
 			return;
 		}
-
+		udpMsg m;
+		m.ackflag = "0";
+		m.udpmsg = msg;
+		string ready_msg = serializeMsg(m);
 		//prepare messages
-		char* sendmsg = new char[msg.size()+2];
-		for(unsigned int i = 0; i<msg.size(); i++){
-			sendmsg[i] = msg[i];
+		char* sendmsg = new char[ready_msg.size()+1];
+		for(unsigned int i = 0; i<ready_msg.size(); i++){
+			sendmsg[i] = ready_msg[i];
 		}
-		sendmsg[msg.size()]='0';      
-		sendmsg[msg.size()+1]='\0';		
-
+		sendmsg[ready_msg.size()]='\0';      
+		//sendmsg[msg.size()+1]='\0';		 
 		//prepare address
 		struct sockaddr_in addr;
 	    socklen_t addr_len = sizeof(addr);
@@ -110,7 +126,9 @@ public:
 
 	    //send messages
 	    ssize_t ret = 0;
-	    ret = sendto(s, sendmsg, sizeof(sendmsg), 0, reinterpret_cast<struct sockaddr *>(&addr), addr_len);
+	    //cout << "UDP send:" << sendmsg << endl;
+	    //cout << "UDP send size:" << to_string(ready_msg.size()+1) << endl;
+	    ret = sendto(s, sendmsg, ready_msg.size()+1, 0, reinterpret_cast<struct sockaddr *>(&addr), addr_len);
     	if(ret == -1){
     		cout << "UDPSend fail!--"<< strerror(errno)<< endl;
     		return;
@@ -127,18 +145,21 @@ public:
 	    memset(&addr, 0, sizeof(addr));
 	    //!!!!!we just open the door
 	    
-	    char buffer[12];
+	    char buffer[20];
 	    ssize_t ret = recvfrom(s, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr *>(&addr), &addr_len);
 	    if(ret == -1){
 	    	cout << "errors in UDPReceive!--"<< strerror(errno) << endl;
 	    }
-	    size_t msglen = strlen(buffer); 
-	    char ackflag = buffer[msglen-1];
-
+	    //cout << "UDP receive:"<< buffer <<endl;
+	    //size_t msglen = strlen(buffer); 
+	    //char ackflag = buffer[msglen-1];
+	    string temp(buffer);
+	    udpMsg recvmsg = deserializeMsg(temp);
+	    /*
 	    string msg = "";
 	    for(size_t i = 0; i< msglen-1; i++){
 	    	msg += buffer[i]; 
-	    }
+	    }*/
     	
 	    for(unsigned int i = 0; i< this->hosts.size(); i++){
 	    	//get senderID
@@ -146,15 +167,17 @@ public:
 	    		senderID = hosts[i].id;
 	    	}
 	    }
-	    if(ackflag == '0'){
+	    if(recvmsg.ackflag == "0"){//ackflag == '0'
 	    	// it is normal message
-		    buffer[msglen-1] = '1';
-		    sendto(s, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr *>(&addr), addr_len);	    	
+		    //buffer[msglen-1] = '1';
+		    recvmsg.ackflag == "1";
+			string temp = serializeMsg(recvmsg);
+		    sendto(s, const_cast<char *>(temp.c_str()), sizeof(buffer), 0, reinterpret_cast<struct sockaddr *>(&addr), addr_len);	    	
 	    }
 	    else{
 	    	//it is ack message
 	    	ack_mtx.lock();
-	    	string msgVal = to_string(senderID) + msg;
+	    	string msgVal = to_string(senderID) + recvmsg.udpmsg;
 
 	    	if(!ack.count(msgVal))
 	    		ack.insert(msgVal);
@@ -162,10 +185,9 @@ public:
 	    }
 		//prepare deliver and return	    
 	    deliver d;
-		d.msg = msg;
+		d.msg = recvmsg.udpmsg;
 		d.senderID = senderID;
-		d.ackflag = ackflag;
-
+		d.ackflag = recvmsg.ackflag;
 		return d;
 
  	}

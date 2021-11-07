@@ -24,7 +24,7 @@ public:
 	deliver pp2pDeliver(){
 		deliver d = sp2pDeliver();
 		//while true
-		if(d.ackflag == '0'){
+		if(d.ackflag == "0"){
 			string msgVal = to_string(d.senderID) + d.msg;				
 			if(!delivers.count(msgVal)){
 				cout << "pp2pDeliver:"<< d.msg << endl;

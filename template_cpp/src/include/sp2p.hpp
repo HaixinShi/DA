@@ -6,7 +6,7 @@ class sp2p : public flp2p{
 public:
 	mutex taskQueue_mtx;
 	queue<task> taskQueue;
-	set<string> sended;	
+	//set<string> sended;	
 	sp2p(unsigned long myID, vector<myhost>* hosts, const char* output): flp2p(myID, hosts, output){
 
 	}
@@ -23,12 +23,13 @@ public:
 					taskQueue.push(t);
 					flp2pSend(t.target, t.msg);
 					
-					//log this send event					
+					//log this send event
+					/*					
 					if(!sended.count(msgVal)){
 						sended.insert(msgVal);
 						string m(t.msg);
 						//log += "b " + m + "\n";
-					}
+					}*/
 				}
 				ack_mtx.unlock();							
 			}	
