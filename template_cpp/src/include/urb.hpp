@@ -3,40 +3,24 @@
 #include <sstream>
 using namespace std;
 
-struct urbMsg{
-	string senderID;
-	string body;
-};
-
 class urb{
 
 public:
-	map<string, set<unsigned long>> ack;
-	set<string> delivers;
-	set<string> pending;
-
+	map<string, set<uint8_t>> ack;
+	unordered_set<string> delivers;
+	SafeQueue<urbPacket> pending;
+	unordered_set<string> pendingTag;
 
 	pp2p* pl;
-	string myID;
+	uint8_t myID;
 	vector<myhost>* hosts;
 	bool stopflag = false;
 	const char* output;
-	mutex pendinglock;	
+	//mutex pendinglock;	
 	mutex acklock;
-	string serializeMsg(urbMsg m){
-		string msg = m.senderID + ","+m.body;
-		return msg;
-	}
-	urbMsg deserializeMsg(string m){
-		urbMsg msg;
-		size_t split = m.find(",");
-		msg.senderID = m.substr(0, split);
-		msg.body = m.substr(split + 1, m.size()- 1 -split);
-		return msg;
-	}
 
-	urb(unsigned long myID, vector<myhost>* hosts, const char* output){
-		this -> myID = to_string(myID);
+	urb(uint8_t myID, vector<myhost>* hosts, const char* output){
+		this -> myID = myID;
 		this -> hosts = hosts;
 		this -> output = output;
 		pl = new pp2p(myID, hosts, output);
@@ -54,26 +38,24 @@ public:
 	}
 
 
-	void bebBroadcast(string msg){
+	void bebBroadcast(urbPacket u){
 		for(unsigned int j = 0; j < hosts-> size(); j++){
-			pl -> pp2pSend((*hosts)[j], msg);
+			pl -> pp2pSend((*hosts)[j], u);
 		}
 	}
 	deliver bebDeliver(){
 		return 	pl -> pp2pDeliver();			
 	}
 
-	void urbBroadcast(string msg){
-		urbMsg m;
-		m.senderID = myID;
-		m.body = msg;
-		string msgVal = serializeMsg(m);
+	void urbBroadcast(fifoPacket f){
+		urbPacket u;
+		u.originalSenderID = myID;
+		u.fifomsg = f;
+		//pendinglock.lock();
+		pending.push(u);
+		//pendinglock.unlock();
 		
-		pendinglock.lock();
-		pending.insert(msgVal);
-		pendinglock.unlock();
-		
-		bebBroadcast(msgVal);
+		bebBroadcast(u);
 	}
 	bool canDeliver(string msg){
 			acklock.lock();
@@ -86,40 +68,56 @@ public:
 	void urbDeliver(){
 		while(!stopflag){
 			deliver d = bebDeliver();
-			if(d.msg != ""){	
-				string msgVal = d.msg;
+			if(d.ackflag == '0'){
+				//cout << "----------urbDeliver" <<endl;
+				string urb_str = d.urbmsg.getTag();
 				acklock.lock();
-				if(ack.find(d.msg)!= ack.end()){
-					ack[d.msg].insert(d.senderID);			
+				if(ack.find(urb_str)!= ack.end()){
+					ack[urb_str].insert(d.realSenderID);			
 				}
 				else{
-					set<unsigned long> temp;
-					temp.insert(d.senderID);
-					ack[d.msg] = temp;
+					set<uint8_t> temp;
+					temp.insert(d.realSenderID);
+					ack[urb_str] = temp;
 				}
 				acklock.unlock();
-				pendinglock.lock();
-				if(!pending.count(d.msg)){
-					pending.insert(d.msg);//original sender + msg
-					bebBroadcast(d.msg);
+
+
+				//pendinglock.lock();
+				if(!pendingTag.count(urb_str)){
+					pendingTag.insert(urb_str);
+					pending.push(d.urbmsg);//original sender + msg +seq
+					bebBroadcast(d.urbmsg);
 				}
-				pendinglock.unlock();
+				//pendinglock.unlock();
 			}
 		}
 	}
-	string urbTrytoDeliver(){
-		if(pendinglock.try_lock()){
-			for(set<string>::iterator it=pending.begin() ;it!=pending.end();it++){
-				string msgVal = *it;
-				if(canDeliver(msgVal) && !delivers.count(msgVal)){	
-					delivers.insert(msgVal);
-					urbMsg urbm = deserializeMsg(msgVal);
-					pendinglock.unlock();
-					return 	urbm.body;			
+	urbPacket urbTrytoDeliver(){
+		//if(pendinglock.try_lock()){
+			long unsigned int num = pending.size();
+			while(!stopflag && num > 0&&!pending.empty()){
+				urbPacket u;//= pending.front();
+				pending.move_pop(u);
+				string urb_str = u.getTag();
+
+				if(canDeliver(urb_str) && !delivers.count(urb_str)){
+					//cout << "---------urbCanDeliver:" << urb_str <<endl;	
+					delivers.insert(urb_str);
+					//pending.pop();
+					//pendinglock.unlock();
+					return 	u;			
 				}
+				else{
+					pending.push(u);
+					//pending.pop();
+				}
+			--num;
 			}
-			pendinglock.unlock();
-		}
-		return "";	
+			//pendinglock.unlock();
+		//}
+		urbPacket u;
+		u.originalSenderID = 0;
+		return u;	
 	}
 };

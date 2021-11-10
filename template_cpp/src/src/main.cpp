@@ -29,10 +29,10 @@ static void stop(int) {
 static void startSendingTask (int m){
     //it could run a thread. 
     //This function is deviced for not blocking main thread early
-    int send_seq = 1;
+    int arbitaryMsg = 1;
     for(int j = 0; j < m; j++){
-      fifoPtr -> fifoBroadcast(to_string(send_seq));
-      send_seq ++;    
+      fifoPtr -> fifoBroadcast(arbitaryMsg);
+      arbitaryMsg ++;    
     } 
 }
 int main(int argc, char **argv) {
@@ -47,13 +47,15 @@ int main(int argc, char **argv) {
   parser.parse();
 
   hello();
+  uint8_t MyID = 0;
+  unsigned long MyID_return = parser.id();
+  memcpy(&MyID, &MyID_return, sizeof(uint8_t));
+  int test = MyID;
   std::cout << std::endl;
-
   std::cout << "My PID: " << getpid() << "\n";
   std::cout << "From a new terminal type `kill -SIGINT " << getpid() << "` or `kill -SIGTERM "
             << getpid() << "` to stop processing packets\n\n";
-
-  std::cout << "My ID: " << parser.id() << "\n\n";
+  std::cout << "My ID: " << to_string(test)<< "\n\n";
 
   std::cout << "List of resolved hosts is:\n";
   std::cout << "==========================\n";
@@ -70,7 +72,7 @@ int main(int argc, char **argv) {
     std::cout << "\n";
 
     struct myhost temp;
-    temp.id = host.id;
+    memcpy(&temp.id, &host.id,sizeof(uint8_t));
     temp.ip = host.ip;
     temp.port = host.port;
     myhosts.push_back(temp);
@@ -87,7 +89,7 @@ int main(int argc, char **argv) {
 
   std::cout << "Doing some initialization...\n\n";
   
-  fifoPtr = new fifo(parser.id(), &myhosts, parser.outputPath());
+  fifoPtr = new fifo(MyID, &myhosts, parser.outputPath());
   
   ifstream configFile(parser.configPath());
   string line;
@@ -100,7 +102,7 @@ int main(int argc, char **argv) {
   iss >> m; 
 
   cout << "m: " << to_string(m) << endl;
-  
+
   std::cout << "Broadcasting and delivering messages...\n\n";
   thread start(startSendingTask, m);
   fifoPtr -> startfifo();

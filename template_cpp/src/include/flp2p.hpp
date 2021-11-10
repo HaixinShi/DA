@@ -3,29 +3,25 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <stdlib.h>
-#include <string>
-#include <thread>
-#include <mutex>
+//#include <thread>
+//#include <mutex>
+#include <unordered_set>
 #include <set>
 #include "parser.hpp"
+#include "packet.hpp"
 using namespace std;
-struct deliver{
-	string msg;
-	unsigned long senderID;
-	string ackflag;
+class deliver{
+public:
+	//udpPacket, size = 10byte
+	char ackflag;
+	urbPacket urbmsg;
+	//udpPacket
+	uint8_t realSenderID;
 };
 struct myhost{
-	unsigned long id;
+	uint8_t id;
 	in_addr_t ip;
 	unsigned short port;
-};
-struct task{
-	myhost target;
-	string msg;
-};
-struct udpMsg{
-	string ackflag;
-	string udpmsg;
 };
 class flp2p {
 /*
@@ -36,10 +32,10 @@ that is implemented by using UDP in this project
 */
 public:
 	bool connected = false;//for sending process 
-	unsigned long myID;//Process ID
+	uint8_t myID;//Process ID
 	vector<myhost> hosts;//It stores the global information of processes
 	string output;//log file address
-	set<string> ack;
+	unordered_set<string> ack;//unorder_set
 	mutex ack_mtx;
 	string log;
 	int s;
@@ -55,19 +51,8 @@ public:
 		out.close();
 		cout << "I finish logging!"<< endl;
 	}
-	string serializeMsg(udpMsg m){
-		string msg =  m.ackflag + ","+ m.udpmsg;
-		return msg;
-	}
-	udpMsg deserializeMsg(string m){
-		udpMsg msg;
-		size_t split = m.find(",");
-		msg.ackflag = m.substr(0, split);
-		msg.udpmsg = m.substr(split + 1, m.size()- 1 -split);
-		return msg;
-	}
 	//creator funtion of flp2p class
-	flp2p(unsigned long myID, vector<myhost>* hosts, const char* output){
+	flp2p(uint8_t myID, vector<myhost>* hosts, const char* output){
 		cout << "enter creator" << endl;
 		this->myID = myID;
 		this->hosts = *hosts;
@@ -100,23 +85,23 @@ public:
 	~flp2p(){
 
 	}
-	void UDPSend(int s, in_addr_t ip, unsigned short port, string msg){
+	void UDPSend(int s, in_addr_t ip, unsigned short port, urbPacket u){
 		if(s == -1){
 			cout<<"could not create socket while sending";
 			return;
 		}
-		udpMsg m;
-		m.ackflag = "0";
-		m.udpmsg = msg;
-		string ready_msg = serializeMsg(m);
-		//prepare messages
-		char* sendmsg = new char[ready_msg.size()+1];
-		for(unsigned int i = 0; i<ready_msg.size(); i++){
-			sendmsg[i] = ready_msg[i];
-		}
-		sendmsg[ready_msg.size()]='\0';      
-		//sendmsg[msg.size()+1]='\0';		 
-		//prepare address
+		char buffer[10];
+		buffer[0]='0';
+
+		//copy msg-------9byte
+		//uint8_t originalSenderID 1byte
+		//int msg; 4byte
+		//int seq; 4byte
+		memcpy(buffer + 1, &u.originalSenderID, sizeof(uint8_t));
+		memcpy(buffer + 1 +sizeof(uint8_t), &u.fifomsg.msg, sizeof(int));
+		memcpy(buffer + 1 + sizeof(uint8_t) + sizeof(int), &u.fifomsg.seq, sizeof(int));
+		//cout<<"----------UDP--send--msg-----" << to_string(u.fifomsg.msg)<< endl;
+	    //cout<<"----------UDP--send--seq-----" << to_string(u.fifomsg.seq)<< endl;
 		struct sockaddr_in addr;
 	    socklen_t addr_len = sizeof(addr);
 	    memset(&addr, 0, sizeof(addr));
@@ -128,7 +113,8 @@ public:
 	    ssize_t ret = 0;
 	    //cout << "UDP send:" << sendmsg << endl;
 	    //cout << "UDP send size:" << to_string(ready_msg.size()+1) << endl;
-	    ret = sendto(s, sendmsg, ready_msg.size()+1, 0, reinterpret_cast<struct sockaddr *>(&addr), addr_len);
+	    ret = sendto(s, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr *>(&addr), addr_len);
+    	
     	if(ret == -1){
     		cout << "UDPSend fail!--"<< strerror(errno)<< endl;
     		return;
@@ -137,61 +123,51 @@ public:
 
 
 	deliver UDPReceive(){
-
-		unsigned long senderID = 0;
 		//specify address
 		struct sockaddr_in addr;
 	    socklen_t addr_len = sizeof(addr);
 	    memset(&addr, 0, sizeof(addr));
 	    //!!!!!we just open the door
 	    
-	    char buffer[20];
+	    char buffer[10];
 	    ssize_t ret = recvfrom(s, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr *>(&addr), &addr_len);
+	    
 	    if(ret == -1){
 	    	cout << "errors in UDPReceive!--"<< strerror(errno) << endl;
 	    }
-	    //cout << "UDP receive:"<< buffer <<endl;
-	    //size_t msglen = strlen(buffer); 
-	    //char ackflag = buffer[msglen-1];
-	    string temp(buffer);
-	    udpMsg recvmsg = deserializeMsg(temp);
-	    /*
-	    string msg = "";
-	    for(size_t i = 0; i< msglen-1; i++){
-	    	msg += buffer[i]; 
-	    }*/
-    	
+	   	deliver d;
 	    for(unsigned int i = 0; i< this->hosts.size(); i++){
 	    	//get senderID
 	    	if(hosts[i].ip == addr.sin_addr.s_addr && hosts[i].port == addr.sin_port){
-	    		senderID = hosts[i].id;
+	    		d.realSenderID = hosts[i].id;
 	    	}
 	    }
-	    if(recvmsg.ackflag == "0"){//ackflag == '0'
-	    	// it is normal message
-		    //buffer[msglen-1] = '1';
-		    recvmsg.ackflag == "1";
-			string temp = serializeMsg(recvmsg);
-		    sendto(s, const_cast<char *>(temp.c_str()), sizeof(buffer), 0, reinterpret_cast<struct sockaddr *>(&addr), addr_len);	    	
+		//copy msg-------9byte
+		//uint8_t originalSenderID 1byte
+		//int msg; 4byte
+		//int seq; 4byte			    
+	    if(buffer[0] == '0'){
+	    	memcpy(&d.urbmsg.originalSenderID, buffer + 1, sizeof(uint8_t));
+			memcpy(&d.urbmsg.fifomsg.msg, buffer +1 +sizeof(uint8_t), sizeof(int));
+			//cout<<"----------UDP--recv--msg-----" << to_string(d.urbmsg.fifomsg.msg)<< endl;
+			memcpy(&d.urbmsg.fifomsg.seq, buffer +1 +sizeof(uint8_t) + sizeof(int), sizeof(int));
+	    	//cout<<"----------UDP--recv--seq-----" << to_string(d.urbmsg.fifomsg.seq)<< endl;
+	    	d.ackflag = '0';
+	    	buffer[0] = '1';
+		    sendto(s, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr *>(&addr), addr_len);	    	
 	    }
-	    else{
-	    	//it is ack message
+	    else{//it is ack message
+	    	d.ackflag = '1';
+	    	string msgVal = getID(d.realSenderID) + d.urbmsg.getTag();
 	    	ack_mtx.lock();
-	    	string msgVal = to_string(senderID) + recvmsg.udpmsg;
-
 	    	if(!ack.count(msgVal))
 	    		ack.insert(msgVal);
 	    	ack_mtx.unlock();
 	    }
-		//prepare deliver and return	    
-	    deliver d;
-		d.msg = recvmsg.udpmsg;
-		d.senderID = senderID;
-		d.ackflag = recvmsg.ackflag;
 		return d;
 
  	}
-	void flp2pSend(myhost target, string msg){
+	void flp2pSend(myhost target, urbPacket msg){
 		
 		UDPSend(s, target.ip, target.port, msg);
 

@@ -288,9 +288,9 @@ def main(processes, messages, runscript, testType, logsDir, testConfig):
         print("Resuming stopped processes.")
         st.continueStoppedProcesses()
 
-        #input("Press `Enter` when all processes have finished processing messages.")
+        input("Press `Enter` when all processes have finished processing messages.")
         import time
-        time.sleep(60)
+        time.sleep(30)
 
         unterminated = st.remainingUnterminatedProcesses()
         if unterminated is not None:
@@ -366,8 +366,8 @@ if __name__ == "__main__":
         'concurrency' : 1, # How many threads are interferring with the running processes
         'attempts' : 10, # How many interferring attempts each threads does
         'attemptsDistribution' : { # Probability with which an interferring thread will
-            'STOP': 0.3,          # select an interferring action (make sure they add up to 1)
-            'CONT': 0.7,
+            'STOP': 0.4,          # select an interferring action (make sure they add up to 1)
+            'CONT': 0.6,
             'TERM':0
         }
     }

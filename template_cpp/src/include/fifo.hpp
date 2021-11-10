@@ -1,20 +1,16 @@
-#include "urb.hpp"
+#include "urb.hpp"	
 using namespace std;
-struct fifoMsg
-{
-	string senderID;
-	string fifomsg;
-	string seq;
-};
 class fifo
 {
 public:
 	int lsn = 0;
-	set<string> pending;
+	//unordered_set<string> pendingTag;
+	//queue<urbPacket> pending;
+	map<uint8_t, set<fifoPacket>> pending;
 	string log;
 	mutex loglock;
 	
-	string myID;
+	uint8_t myID;
 	vector<myhost>* hosts;
 	map<string,int> next;
 	bool stopflag = false;
@@ -37,22 +33,8 @@ public:
 		out.close();
 		cout << "I finish logging!"<< endl;
 	}
-	string serializeMsg(fifoMsg m){
-		string msg = m.senderID + ","+ m.fifomsg + "," + m.seq;
-		return msg;
-	}
-	fifoMsg deserializeMsg(string m){
-		fifoMsg msg;
-		size_t split = m.find(",");
-		msg.senderID = m.substr(0, split);
-		string temp = m.substr(split + 1, m.size()- 1 -split);
-		split = temp.find(",");
-		msg.fifomsg = temp.substr(0, split);
-		msg.seq = temp.substr(split + 1, m.size()- 1 -split);
-		return msg;
-	}
-	fifo(unsigned long myID, vector<myhost>* hosts, const char* output){
-		this -> myID = to_string(myID);
+	fifo(uint8_t myID, vector<myhost>* hosts, const char* output){
+		this -> myID = myID;
 		this -> hosts = hosts;
 		this -> output = output;
 		for(unsigned int i = 0; i < hosts->size();i++){
@@ -60,47 +42,76 @@ public:
 		}
 		urbPtr = new urb(myID, hosts, output);		
 	}
-	void fifoBroadcast(string msg){
+	void fifoBroadcast(int msg){
 		loglock.lock();
-		log += "b " + msg + "\n";
+		log += "b " + to_string(msg) + "\n";
 		loglock.unlock();
 		++lsn;
-		fifoMsg m;
-		m.senderID = myID;
-		m.seq = to_string(lsn);
-		m.fifomsg = msg;
-		urbPtr -> urbBroadcast(serializeMsg(m));
+		fifoPacket f;
+		f.seq = lsn;
+		f.msg = msg;
+		urbPtr -> urbBroadcast(f);
 	}
 	void fifoDelibver(){
 		while(!stopflag){
-			string urbm = urbPtr->urbTrytoDeliver();
-			if(urbm!=""){
-				pending.insert(urbm);//senderID+m+seq
-				fifoMsg fifom = deserializeMsg(urbm);//seq+m
-				set<string>::iterator it=pending.begin();
-				while(it != pending.end()){	
-					
-					fifoMsg temp = deserializeMsg(*it);
-					
-					if(fifom.senderID == temp.senderID){
-						if(temp.seq == to_string(next[fifom.senderID])){
-							next[fifom.senderID]++;
-							pending.erase(it);
-							it = pending.begin();
+			urbPacket u = urbPtr->urbTrytoDeliver();
+			if(u.originalSenderID != 0){				
+				if(pending.count(u.originalSenderID)){
+					pending[u.originalSenderID].insert(u.fifomsg);
+				}
+				else{
+					set<fifoPacket> temp;
+					temp.insert(u.fifomsg);
+					pending[u.originalSenderID] = temp;
+				}
+				set<fifoPacket>::iterator it = pending[u.originalSenderID].begin();
+				while(it != pending[u.originalSenderID].end()){
+					fifoPacket temp = (*it);
+					string originalSenderID = getID(u.originalSenderID);
+					if(temp.seq == next[originalSenderID]){
 							loglock.lock();
-							log += "d " + temp.senderID+" "+ temp.fifomsg +"\n";
+							log += "d " + originalSenderID +" "+ to_string(temp.msg) +"\n";
+							//cout << "d " + originalSenderID +" "+ to_string(temp.msg) +"\n";
 							loglock.unlock();
+							next[originalSenderID]++;
+							pending[u.originalSenderID].erase(it);
+							it = pending[u.originalSenderID].begin();						
+					}
+					else{
+						break;
+					}
+				}
+				/*pending.push(u);//rsenderID+ m+ seq
+				cout << "fifo pending size:" << pending.size() << endl;	
+				
+				long unsigned int num = pending.size();
+				while(num > 0&&!pending.empty()){			
+					urbPacket temp = pending.front();
+					cout << "for-" << temp.getTag() <<endl;
+					cout << getID(temp.originalSenderID)<< endl;
+					cout << getID(u.originalSenderID) << endl;
+					if(temp.originalSenderID == u.originalSenderID){
+						string originalSenderID = getID(u.originalSenderID);
+						if(temp.fifomsg.seq == next[originalSenderID]){
+							next[originalSenderID]++;
+							loglock.lock();
+							log += "d " + originalSenderID +" "+ to_string(temp.fifomsg.msg) +"\n";
+							cout << "d " + originalSenderID +" "+ to_string(temp.fifomsg.msg) +"\n";
+							loglock.unlock();
+							num = pending.size();
+							pending.pop();
 						}
 						else{
-							++it;
+							pending.push(temp);
+							pending.pop();
 						}
 					}
 					else{
-						++it;
+						pending.push(temp);
+						pending.pop();
 					}
-					
-				}
-								
+					--num;
+				}*/			
 			}					
 		}		
 	}

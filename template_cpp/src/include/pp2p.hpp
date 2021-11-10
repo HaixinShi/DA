@@ -7,31 +7,33 @@ private:
 
 public:
 	thread* sendthreadPtr;
-	pp2p(unsigned long myID, vector<myhost>* hosts, const char* output): sp2p(myID, hosts, output){
+	pp2p(uint8_t myID, vector<myhost>* hosts, const char* output): sp2p(myID, hosts, output){
 
 	}
 	void startPerfectLink(){
 		sendthreadPtr = new thread(&sp2p::sp2pSend, this);
 	}
-	void pp2pSend(myhost& target, string msg){
+	void pp2pSend(myhost& target, urbPacket u){
 		task t;
 		t.target = target;
-		t.msg = msg;
-		taskQueue_mtx.lock();
+		t.urbmsg = u;
+		//taskQueue_mtx.lock();
 		taskQueue.push(t);
-		taskQueue_mtx.unlock();		
+		//taskQueue_mtx.unlock();		
 	}
 	deliver pp2pDeliver(){
 		deliver d = sp2pDeliver();
 		//while true
-		if(d.ackflag == "0"){
-			string msgVal = to_string(d.senderID) + d.msg;				
+		if(d.ackflag == '0'){
+			//cout << "-------pp2pDeliver:"<<endl;
+			string msgVal = getID(d.realSenderID)+ d.urbmsg.getTag();
+			//cout << "-------pp2pDeliver:"<< msgVal <<endl;
 			if(!delivers.count(msgVal)){
 				delivers.insert(msgVal);
 				return d;
 			}				
 		}
-		d.msg = "";
+		d.ackflag = '1';
 		return d;		
 	}
 

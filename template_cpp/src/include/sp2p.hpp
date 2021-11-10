@@ -1,39 +1,35 @@
-#include <queue>
+#include "SafeQueue.hpp"
 #include "flp2p.hpp"
 using namespace std;
-
+class task{
+public:
+	myhost target;
+	urbPacket urbmsg;
+};
 class sp2p : public flp2p{
 public:
-	mutex taskQueue_mtx;
-	queue<task> taskQueue;
-	//set<string> sended;	
-	sp2p(unsigned long myID, vector<myhost>* hosts, const char* output): flp2p(myID, hosts, output){
+	//mutex taskQueue_mtx;
+	SafeQueue<task> taskQueue;
+	
+	sp2p(uint8_t myID, vector<myhost>* hosts, const char* output): flp2p(myID, hosts, output){
 
 	}
 	void sp2pSend(){
 		while(!stopflag){
-			taskQueue_mtx.lock();
+			//taskQueue_mtx.lock();
 			if(!taskQueue.empty()){
-				task t = taskQueue.front();
-				string msg(t.msg);
-				string msgVal = to_string(t.target.id) + msg;
-				taskQueue.pop();
-				ack_mtx.lock();					
-				if(!ack.count(msgVal)){
+				task t;//= taskQueue.front();
+				taskQueue.move_pop(t);
+				//taskQueue.pop();
+				ack_mtx.lock();				
+				if(!ack.count(getID(t.target.id) + t.urbmsg.getTag())){
+					//cout << "--------sp2pSend:" << 	getID(t.target.id) + t.urbmsg.getTag()<< endl;
 					taskQueue.push(t);
-					flp2pSend(t.target, t.msg);
-					
-					//log this send event
-					/*					
-					if(!sended.count(msgVal)){
-						sended.insert(msgVal);
-						string m(t.msg);
-						//log += "b " + m + "\n";
-					}*/
+					flp2pSend(t.target, t.urbmsg);
 				}
 				ack_mtx.unlock();							
 			}	
-			taskQueue_mtx.unlock();
+			//taskQueue_mtx.unlock();
 			
 		}
 		
