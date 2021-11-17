@@ -3,8 +3,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <stdlib.h>
-//#include <thread>
-//#include <mutex>
 #include <unordered_set>
 #include <set>
 #include "parser.hpp"
@@ -13,10 +11,9 @@ using namespace std;
 class deliver{
 public:
 	//udpPacket, size = 10byte
-	char ackflag;
 	urbPacket urbmsg;
 	//udpPacket
-	uint8_t realSenderID;
+	uint8_t realSenderID = 0;
 };
 struct myhost{
 	uint8_t id;
@@ -40,17 +37,6 @@ public:
 	string log;
 	int s;
 	bool stopflag = false;
-	void logfuction(){
-		ofstream out;
-		out.open(this->output);
-		if(log.length()>0){
-			log.erase(log.end()-1);
-		}
-		out << log;
-		out.flush();
-		out.close();
-		cout << "I finish logging!"<< endl;
-	}
 	//creator funtion of flp2p class
 	flp2p(uint8_t myID, vector<myhost>* hosts, const char* output){
 		cout << "enter creator" << endl;
@@ -128,44 +114,46 @@ public:
 	    socklen_t addr_len = sizeof(addr);
 	    memset(&addr, 0, sizeof(addr));
 	    //!!!!!we just open the door
-	    
+	    deliver d;
 	    char buffer[10];
-	    ssize_t ret = recvfrom(s, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr *>(&addr), &addr_len);
-	    
-	    if(ret == -1){
-	    	cout << "errors in UDPReceive!--"<< strerror(errno) << endl;
-	    }
-	   	deliver d;
-	    for(unsigned int i = 0; i< this->hosts.size(); i++){
-	    	//get senderID
-	    	if(hosts[i].ip == addr.sin_addr.s_addr && hosts[i].port == addr.sin_port){
-	    		d.realSenderID = hosts[i].id;
+	    while(!stopflag){
+		    ssize_t ret = recvfrom(s, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr *>(&addr), &addr_len);
+		    
+		    if(ret == -1){
+		    	cout << "errors in UDPReceive!--"<< strerror(errno) << endl;
+		    }
+		   	for(unsigned int i = 0; i< this->hosts.size(); i++){
+	    		//get senderID
+		    	if(hosts[i].ip == addr.sin_addr.s_addr && hosts[i].port == addr.sin_port){
+		    		d.realSenderID = hosts[i].id;
+		    	}
 	    	}
+		    if(buffer[0] == '0'){
+		    	memcpy(&d.urbmsg.originalSenderID, buffer + 1, sizeof(uint8_t));
+				memcpy(&d.urbmsg.fifomsg.msg, buffer +1 +sizeof(uint8_t), sizeof(int));
+				//cout<<"----------UDP--recv--msg-----" << to_string(d.urbmsg.fifomsg.msg)<< endl;
+				memcpy(&d.urbmsg.fifomsg.seq, buffer +1 +sizeof(uint8_t) + sizeof(int), sizeof(int));
+		    	//cout<<"----------UDP--recv--seq-----" << to_string(d.urbmsg.fifomsg.seq)<< endl;
+		    	buffer[0] = '1';
+			    sendto(s, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr *>(&addr), addr_len);	
+			    return d;
+		    
+		    }
+		    else{//it is ack message
+		    	string msgVal = getID(d.realSenderID) + d.urbmsg.getTag();
+		    	ack_mtx.lock();
+		    	if(!ack.count(msgVal))
+		    		ack.insert(msgVal);
+		    	ack_mtx.unlock();
+		    	continue;
+		    }		   	
+			//copy msg-------9byte
+			//uint8_t originalSenderID 1byte
+			//int msg; 4byte
+			//int seq; 4byte			    
 	    }
-		//copy msg-------9byte
-		//uint8_t originalSenderID 1byte
-		//int msg; 4byte
-		//int seq; 4byte			    
-	    if(buffer[0] == '0'){
-	    	memcpy(&d.urbmsg.originalSenderID, buffer + 1, sizeof(uint8_t));
-			memcpy(&d.urbmsg.fifomsg.msg, buffer +1 +sizeof(uint8_t), sizeof(int));
-			//cout<<"----------UDP--recv--msg-----" << to_string(d.urbmsg.fifomsg.msg)<< endl;
-			memcpy(&d.urbmsg.fifomsg.seq, buffer +1 +sizeof(uint8_t) + sizeof(int), sizeof(int));
-	    	//cout<<"----------UDP--recv--seq-----" << to_string(d.urbmsg.fifomsg.seq)<< endl;
-	    	d.ackflag = '0';
-	    	buffer[0] = '1';
-		    sendto(s, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr *>(&addr), addr_len);	    	
-	    }
-	    else{//it is ack message
-	    	d.ackflag = '1';
-	    	string msgVal = getID(d.realSenderID) + d.urbmsg.getTag();
-	    	ack_mtx.lock();
-	    	if(!ack.count(msgVal))
-	    		ack.insert(msgVal);
-	    	ack_mtx.unlock();
-	    }
+	    d.realSenderID = 0;
 		return d;
-
  	}
 	void flp2pSend(myhost target, urbPacket msg){
 		

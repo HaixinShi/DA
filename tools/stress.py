@@ -289,8 +289,8 @@ def main(processes, messages, runscript, testType, logsDir, testConfig):
         st.continueStoppedProcesses()
 
         input("Press `Enter` when all processes have finished processing messages.")
-        import time
-        time.sleep(300)
+        #import time
+        #time.sleep(300)
 
         unterminated = st.remainingUnterminatedProcesses()
         if unterminated is not None:

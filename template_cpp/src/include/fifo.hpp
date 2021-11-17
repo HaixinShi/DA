@@ -4,8 +4,7 @@ class fifo
 {
 public:
 	int lsn = 0;
-	//unordered_set<string> pendingTag;
-	//queue<urbPacket> pending;
+
 	map<uint8_t, set<fifoPacket>> pending;
 	string log;
 	mutex loglock;
@@ -80,38 +79,7 @@ public:
 					else{
 						break;
 					}
-				}
-				/*pending.push(u);//rsenderID+ m+ seq
-				cout << "fifo pending size:" << pending.size() << endl;	
-				
-				long unsigned int num = pending.size();
-				while(num > 0&&!pending.empty()){			
-					urbPacket temp = pending.front();
-					cout << "for-" << temp.getTag() <<endl;
-					cout << getID(temp.originalSenderID)<< endl;
-					cout << getID(u.originalSenderID) << endl;
-					if(temp.originalSenderID == u.originalSenderID){
-						string originalSenderID = getID(u.originalSenderID);
-						if(temp.fifomsg.seq == next[originalSenderID]){
-							next[originalSenderID]++;
-							loglock.lock();
-							log += "d " + originalSenderID +" "+ to_string(temp.fifomsg.msg) +"\n";
-							cout << "d " + originalSenderID +" "+ to_string(temp.fifomsg.msg) +"\n";
-							loglock.unlock();
-							num = pending.size();
-							pending.pop();
-						}
-						else{
-							pending.push(temp);
-							pending.pop();
-						}
-					}
-					else{
-						pending.push(temp);
-						pending.pop();
-					}
-					--num;
-				}*/			
+				}			
 			}					
 		}		
 	}

@@ -51,9 +51,8 @@ public:
 		urbPacket u;
 		u.originalSenderID = myID;
 		u.fifomsg = f;
-		//pendinglock.lock();
+
 		pending.push(u);
-		//pendinglock.unlock();
 		
 		bebBroadcast(u);
 	}
@@ -68,7 +67,7 @@ public:
 	void urbDeliver(){
 		while(!stopflag){
 			deliver d = bebDeliver();
-			if(d.ackflag == '0'){
+			if(d.realSenderID != 0){
 				//cout << "----------urbDeliver" <<endl;
 				string urb_str = d.urbmsg.getTag();
 				acklock.lock();
@@ -82,19 +81,15 @@ public:
 				}
 				acklock.unlock();
 
-
-				//pendinglock.lock();
 				if(!pendingTag.count(urb_str)){
 					pendingTag.insert(urb_str);
 					pending.push(d.urbmsg);//original sender + msg +seq
 					bebBroadcast(d.urbmsg);
 				}
-				//pendinglock.unlock();
 			}
 		}
 	}
 	urbPacket urbTrytoDeliver(){
-		//if(pendinglock.try_lock()){
 			long unsigned int num = pending.size();
 			while(!stopflag && num > 0&&!pending.empty()){
 				urbPacket u;//= pending.front();
@@ -104,18 +99,13 @@ public:
 				if(canDeliver(urb_str) && !delivers.count(urb_str)){
 					//cout << "---------urbCanDeliver:" << urb_str <<endl;	
 					delivers.insert(urb_str);
-					//pending.pop();
-					//pendinglock.unlock();
 					return 	u;			
 				}
 				else{
 					pending.push(u);
-					//pending.pop();
 				}
 			--num;
 			}
-			//pendinglock.unlock();
-		//}
 		urbPacket u;
 		u.originalSenderID = 0;
 		return u;	

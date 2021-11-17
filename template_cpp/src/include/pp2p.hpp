@@ -24,7 +24,7 @@ public:
 	deliver pp2pDeliver(){
 		deliver d = sp2pDeliver();
 		//while true
-		if(d.ackflag == '0'){
+		if(d.realSenderID != 0){
 			//cout << "-------pp2pDeliver:"<<endl;
 			string msgVal = getID(d.realSenderID)+ d.urbmsg.getTag();
 			//cout << "-------pp2pDeliver:"<< msgVal <<endl;
@@ -33,7 +33,6 @@ public:
 				return d;
 			}				
 		}
-		d.ackflag = '1';
 		return d;		
 	}
 
