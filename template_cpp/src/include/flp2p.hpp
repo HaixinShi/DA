@@ -8,6 +8,23 @@
 #include "parser.hpp"
 #include "packet.hpp"
 using namespace std;
+class multitask{
+public:
+	unsigned int target;
+	queue<urbPacket> urbmsgs;
+	string getTag(){
+		long unsigned int size = urbmsgs.size();
+		string ret = to_string(target);
+		while(size > 0){
+			urbPacket temp = urbmsgs.front();
+			ret += temp.getTag();
+			urbmsgs.pop();
+			urbmsgs.push(temp);
+			--size;
+ 		}
+ 		return ret;
+	}
+};
 class deliver{
 public:
 	//udpPacket, size = 10byte
@@ -28,7 +45,8 @@ that is implemented by using UDP in this project
 
 */
 public:
-	bool connected = false;//for sending process 
+	SafeQueue<deliver> pending;
+	unsigned int maxSize = 10;
 	uint8_t myID;//Process ID
 	vector<myhost> hosts;//It stores the global information of processes
 	string output;//log file address
@@ -71,21 +89,34 @@ public:
 	~flp2p(){
 
 	}
-	void UDPSend(int s, in_addr_t ip, unsigned short port, urbPacket u){
+	void UDPSend(int s, in_addr_t ip, unsigned short port, queue<urbPacket> u){
 		if(s == -1){
 			cout<<"could not create socket while sending";
 			return;
 		}
-		char buffer[10];
+		char buffer[91];//1 + 10*9 = 91
+		memset(&buffer, 0, 91);
 		buffer[0]='0';
+		//cout << "UDP----Send----------------" << endl;
+		for(unsigned i = 0; i < maxSize ; i++){
+			//copy msg-------9byte
+			//uint8_t originalSenderID 1byte
+			//int msg; 4byte
+			//int seq; 4byte
+			if(!u.empty()){
+				//cout << "UDP packet:" << to_string(u.front().fifomsg.msg) << endl;
+				memcpy(buffer + 1 + 9*i, &u.front().originalSenderID, sizeof(uint8_t));
+				memcpy(buffer + 1 + sizeof(uint8_t)+ 9*i, &u.front().fifomsg.msg, sizeof(int));
+				memcpy(buffer + 1 + sizeof(uint8_t) + sizeof(int) + 9*i, &u.front().fifomsg.seq, sizeof(int));
+				u.pop();
+			}
+			else{
+				break;
+			}
 
-		//copy msg-------9byte
-		//uint8_t originalSenderID 1byte
-		//int msg; 4byte
-		//int seq; 4byte
-		memcpy(buffer + 1, &u.originalSenderID, sizeof(uint8_t));
-		memcpy(buffer + 1 +sizeof(uint8_t), &u.fifomsg.msg, sizeof(int));
-		memcpy(buffer + 1 + sizeof(uint8_t) + sizeof(int), &u.fifomsg.seq, sizeof(int));
+		}
+
+		
 		//cout<<"----------UDP--send--msg-----" << to_string(u.fifomsg.msg)<< endl;
 	    //cout<<"----------UDP--send--seq-----" << to_string(u.fifomsg.seq)<< endl;
 		struct sockaddr_in addr;
@@ -108,61 +139,78 @@ public:
 	}
 
 
-	deliver UDPReceive(){
+	void UDPReceive(){
 		//specify address
 		struct sockaddr_in addr;
 	    socklen_t addr_len = sizeof(addr);
 	    memset(&addr, 0, sizeof(addr));
 	    //!!!!!we just open the door
-	    deliver d;
-	    char buffer[10];
+	    char buffer[91];
 	    while(!stopflag){
+	    	memset(&buffer, 0, 91);
 		    ssize_t ret = recvfrom(s, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr *>(&addr), &addr_len);
 		    
 		    if(ret == -1){
 		    	cout << "errors in UDPReceive!--"<< strerror(errno) << endl;
 		    }
+		    uint8_t realSenderID = 0;
 		   	for(unsigned int i = 0; i< this->hosts.size(); i++){
 	    		//get senderID
 		    	if(hosts[i].ip == addr.sin_addr.s_addr && hosts[i].port == addr.sin_port){
-		    		d.realSenderID = hosts[i].id;
+		    		realSenderID = hosts[i].id;
 		    	}
 	    	}
+
 		    if(buffer[0] == '0'){
-		    	memcpy(&d.urbmsg.originalSenderID, buffer + 1, sizeof(uint8_t));
-				memcpy(&d.urbmsg.fifomsg.msg, buffer +1 +sizeof(uint8_t), sizeof(int));
-				//cout<<"----------UDP--recv--msg-----" << to_string(d.urbmsg.fifomsg.msg)<< endl;
-				memcpy(&d.urbmsg.fifomsg.seq, buffer +1 +sizeof(uint8_t) + sizeof(int), sizeof(int));
-		    	//cout<<"----------UDP--recv--seq-----" << to_string(d.urbmsg.fifomsg.seq)<< endl;
 		    	buffer[0] = '1';
-			    sendto(s, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr *>(&addr), addr_len);	
-			    return d;
-		    
+			    sendto(s, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr *>(&addr), addr_len);
+		    	//cout << "-----UDP--Receive--------" << endl;
+		    	for(unsigned int i = 0; i < maxSize; i++){
+			    	deliver d;
+			    	d.realSenderID = realSenderID;
+			    	memcpy(&d.urbmsg.originalSenderID, buffer + 1 + 9*i, sizeof(uint8_t));
+					memcpy(&d.urbmsg.fifomsg.msg, buffer +1 +sizeof(uint8_t) + 9*i, sizeof(int));
+					//cout<<"----------UDP--recv--msg-----" << to_string(d.urbmsg.fifomsg.msg)<< endl;
+					memcpy(&d.urbmsg.fifomsg.seq, buffer +1 +sizeof(uint8_t) + sizeof(int) + 9*i, sizeof(int));
+			    	//cout<<"----------UDP--recv--seq-----" << to_string(d.urbmsg.fifomsg.seq)<< endl;	
+				    //cout << "UDP unpack:"<< to_string(d.urbmsg.fifomsg.msg) << endl;
+				    if(d.urbmsg.originalSenderID != 0){
+				    	pending.push(d);
+				    }
+				    else{
+				    	break;
+				    }
+		    	}	    
 		    }
 		    else{//it is ack message
-		    	string msgVal = getID(d.realSenderID) + d.urbmsg.getTag();
+		    	multitask mt;
+		    	mt.target = realSenderID;
+		    	for(unsigned int i = 0; i < maxSize; i++){
+			    	deliver d;
+			    	d.realSenderID = realSenderID;
+			    	memcpy(&d.urbmsg.originalSenderID, buffer + 1 + 9*i, sizeof(uint8_t));
+					memcpy(&d.urbmsg.fifomsg.msg, buffer +1 +sizeof(uint8_t) + 9*i, sizeof(int));
+					//cout<<"----------UDP--recv--msg-----" << to_string(d.urbmsg.fifomsg.msg)<< endl;
+					memcpy(&d.urbmsg.fifomsg.seq, buffer +1 +sizeof(uint8_t) + sizeof(int) + 9*i, sizeof(int));
+			    	//cout<<"----------UDP--recv--seq-----" << to_string(d.urbmsg.fifomsg.seq)<< endl;	
+				    if(d.urbmsg.originalSenderID != 0){
+				    	mt.urbmsgs.push(d.urbmsg);
+				    }
+				    else{
+				    	break;
+				    }
+		    	}
 		    	ack_mtx.lock();
-		    	if(!ack.count(msgVal))
-		    		ack.insert(msgVal);
+		    	if(!ack.count(mt.getTag()))
+		    		ack.insert(mt.getTag());
 		    	ack_mtx.unlock();
 		    	continue;
-		    }		   	
-			//copy msg-------9byte
-			//uint8_t originalSenderID 1byte
-			//int msg; 4byte
-			//int seq; 4byte			    
+		    }		   				    
 	    }
-	    d.realSenderID = 0;
-		return d;
  	}
-	void flp2pSend(myhost target, urbPacket msg){
+	void flp2pSend(unsigned int target, queue<urbPacket> msg){
 		
-		UDPSend(s, target.ip, target.port, msg);
-
-	}
-	deliver flp2pDeliver(){
-		
-		return UDPReceive();
+		UDPSend(s, hosts[target - 1].ip, hosts[target - 1].port, msg);
 
 	}
 };

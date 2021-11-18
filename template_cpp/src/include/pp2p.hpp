@@ -7,13 +7,15 @@ private:
 
 public:
 	thread* sendthreadPtr;
+	thread* receivethreadPtr;
 	pp2p(uint8_t myID, vector<myhost>* hosts, const char* output): sp2p(myID, hosts, output){
 
 	}
 	void startPerfectLink(){
 		sendthreadPtr = new thread(&sp2p::sp2pSend, this);
+		receivethreadPtr = new thread(&flp2p::UDPReceive, this);
 	}
-	void pp2pSend(myhost& target, urbPacket u){
+	void pp2pSend(unsigned int target, urbPacket u){
 		task t;
 		t.target = target;
 		t.urbmsg = u;
@@ -25,10 +27,10 @@ public:
 		deliver d = sp2pDeliver();
 		//while true
 		if(d.realSenderID != 0){
-			//cout << "-------pp2pDeliver:"<<endl;
 			string msgVal = getID(d.realSenderID)+ d.urbmsg.getTag();
-			//cout << "-------pp2pDeliver:"<< msgVal <<endl;
+			//cout << "-------try to pp2pDeliver:"<< msgVal <<endl;
 			if(!delivers.count(msgVal)){
+				//cout << "-------pp2pDeliver:"<< msgVal <<endl;
 				delivers.insert(msgVal);
 				return d;
 			}				

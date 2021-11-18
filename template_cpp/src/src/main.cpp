@@ -104,9 +104,10 @@ int main(int argc, char **argv) {
   cout << "m: " << to_string(m) << endl;
 
   std::cout << "Broadcasting and delivering messages...\n\n";
-  thread start(startSendingTask, m);
+  //thread start(startSendingTask, m);
+  startSendingTask(m);
   fifoPtr -> startfifo();
-  start.join();
+  //start.join();
   // After a process finishes broadcasting,
   // it waits forever for the delivery of messages.
   while (true) {

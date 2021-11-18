@@ -33,6 +33,7 @@ public:
 		thread urbDeliverThread(&urb::urbDeliver, this);
 
 		//join the threads
+		pl -> receivethreadPtr -> join();
 		pl -> sendthreadPtr -> join();
 		urbDeliverThread.join();		
 	}
@@ -40,7 +41,7 @@ public:
 
 	void bebBroadcast(urbPacket u){
 		for(unsigned int j = 0; j < hosts-> size(); j++){
-			pl -> pp2pSend((*hosts)[j], u);
+			pl -> pp2pSend(j+1, u);
 		}
 	}
 	deliver bebDeliver(){
