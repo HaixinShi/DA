@@ -16,12 +16,6 @@ public:
 	const char* output;
 	
 	urb* urbPtr;
-
-	void startfifo(){
-		thread fifoDelibverThread(&fifo::fifoDelibver, this);
-		urbPtr -> starturb();
-		fifoDelibverThread.join();
-	}
 	void logfunction(){
 		ofstream out;
 		out.open(this->output);
@@ -41,7 +35,12 @@ public:
 		}
 		urbPtr = new urb(myID, hosts, output);		
 	}
+	~fifo(){
+		delete urbPtr;
+		urbPtr = NULL;
+	}
 	void fifoBroadcast(int msg){
+		
 		loglock.lock();
 		log += "b " + to_string(msg) + "\n";
 		loglock.unlock();
@@ -51,10 +50,10 @@ public:
 		f.msg = msg;
 		urbPtr -> urbBroadcast(f);
 	}
-	void fifoDelibver(){
-		while(!stopflag){
-			urbPacket u = urbPtr->urbTrytoDeliver();
-			if(u.originalSenderID != 0){				
+	void fifoDelibver(urbPacket u){
+		//while(!stopflag){
+			//urbPacket u = urbPtr->urbTrytoDeliver();
+			//if(u.originalSenderID != 0){				
 				if(pending.count(u.originalSenderID)){
 					pending[u.originalSenderID].insert(u.fifomsg);
 				}
@@ -80,9 +79,8 @@ public:
 						break;
 					}
 				}			
-			}					
-		}		
+			//}					
+		//}		
 	}
-	~fifo();
 	
-};
+};	

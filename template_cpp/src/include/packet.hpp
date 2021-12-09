@@ -1,4 +1,5 @@
 #include <string>
+#include <vector>
 using namespace std;
 string getID(uint8_t id);
 string getID(uint8_t id){
@@ -16,12 +17,40 @@ public:
 		return this->seq < right.seq;
 	}
 };
-
+class lcbPacket{//4*(hosts.size()+1)+1
+public:
+	int msg = 0;
+	vector<int> V;
+	string getTag(){
+		/*
+		string ret = ":";
+		ret += to_string(msg) + "[";
+		for(unsigned int i = 0; i < V.size(); i++){
+			ret += to_string(V[i])+","; 
+		}
+		ret += "]";*/
+		string ret = "";
+		for(unsigned int i = 0; i < V.size(); i++){
+			ret += to_string(V[i]); 
+		}
+		return ret;
+	}
+};
+/*
 class urbPacket{//9byte
 public:
 	uint8_t originalSenderID = 0;
 	fifoPacket fifomsg;
 	string getTag(){
 		return getID(originalSenderID) + fifomsg.getTag();
+	}	
+};*/
+
+class urbPacket{
+public:
+	uint8_t originalSenderID = 0;
+	lcbPacket lcbmsg;
+	string getTag(){
+		return getID(originalSenderID) + lcbmsg.getTag();
 	}	
 };

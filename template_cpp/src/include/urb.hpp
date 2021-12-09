@@ -1,6 +1,8 @@
 #include "pp2p.hpp"
 #include <map>
 #include <sstream>
+#include <stdio.h>
+#include <time.h>
 using namespace std;
 
 class urb{
@@ -16,9 +18,10 @@ public:
 	vector<myhost>* hosts;
 	bool stopflag = false;
 	const char* output;
+
+	void (*calllcb) (urbPacket);
 	//mutex pendinglock;	
 	mutex acklock;
-
 	urb(uint8_t myID, vector<myhost>* hosts, const char* output){
 		this -> myID = myID;
 		this -> hosts = hosts;
@@ -26,32 +29,20 @@ public:
 		pl = new pp2p(myID, hosts, output);
 		
 	}
-	void starturb(){
-
-		pl -> startPerfectLink();//start sending
-		//start listenning
-		thread urbDeliverThread(&urb::urbDeliver, this);
-
-		//join the threads
-		pl -> receivethreadPtr -> join();
-		pl -> sendthreadPtr -> join();
-		urbDeliverThread.join();		
+	~urb(){
+		delete pl;
+		pl = NULL;
 	}
-
 
 	void bebBroadcast(urbPacket u){
 		for(unsigned int j = 0; j < hosts-> size(); j++){
 			pl -> pp2pSend(j+1, u);
 		}
 	}
-	deliver bebDeliver(){
-		return 	pl -> pp2pDeliver();			
-	}
-
-	void urbBroadcast(fifoPacket f){
+	void urbBroadcast(lcbPacket l){
 		urbPacket u;
 		u.originalSenderID = myID;
-		u.fifomsg = f;
+		u.lcbmsg = l;
 
 		pending.push(u);
 		
@@ -65,9 +56,39 @@ public:
 			acklock.unlock();
 			return flag;
 	}
-	void urbDeliver(){
+	void urbTrytoDeliver(){
+		//long unsigned int num = pending.size();
+		//while(!stopflag && num > 0&&!pending.empty()){
 		while(!stopflag){
-			deliver d = bebDeliver();
+			if(pending.empty())
+				continue;
+			//time_t t;
+			//time(&t);
+			//cout << "time:"<< ctime(&t)<<"urb pending size:" << to_string( pending.size()) << endl;
+			urbPacket u;//= pending.front();
+			pending.move_pop(u);
+			string urb_str = u.getTag();
+
+			if(canDeliver(urb_str) && !delivers.count(urb_str)){
+				//cout << "---------urbCanDeliver:" << urb_str <<endl;	
+				delivers.insert(urb_str);
+				pendingTag.erase(urb_str);
+				//return 	u;
+				calllcb(u);
+			}
+			else{
+				pending.push(u);
+			}
+		//--num;
+		}
+		/*
+		urbPacket u;
+		u.originalSenderID = 0;	
+		return u;*/
+	}
+	void urbDeliver(deliver d){
+		//while(!stopflag){
+			//deliver d = bebDeliver();
 			if(d.realSenderID != 0){
 				//cout << "----------urbDeliver" <<endl;
 				string urb_str = d.urbmsg.getTag();
@@ -85,30 +106,11 @@ public:
 				if(!pendingTag.count(urb_str)){
 					pendingTag.insert(urb_str);
 					pending.push(d.urbmsg);//original sender + msg +seq
+					//urbTrytoDeliver();
 					bebBroadcast(d.urbmsg);
 				}
 			}
-		}
+		//}
 	}
-	urbPacket urbTrytoDeliver(){
-			long unsigned int num = pending.size();
-			while(!stopflag && num > 0&&!pending.empty()){
-				urbPacket u;//= pending.front();
-				pending.move_pop(u);
-				string urb_str = u.getTag();
 
-				if(canDeliver(urb_str) && !delivers.count(urb_str)){
-					//cout << "---------urbCanDeliver:" << urb_str <<endl;	
-					delivers.insert(urb_str);
-					return 	u;			
-				}
-				else{
-					pending.push(u);
-				}
-			--num;
-			}
-		urbPacket u;
-		u.originalSenderID = 0;
-		return u;	
-	}
 };

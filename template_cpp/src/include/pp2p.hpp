@@ -6,25 +6,27 @@ private:
 	set<string> delivers;
 
 public:
-	thread* sendthreadPtr;
-	thread* receivethreadPtr;
+	void (*callurb) (deliver);
+
 	pp2p(uint8_t myID, vector<myhost>* hosts, const char* output): sp2p(myID, hosts, output){
 
 	}
-	void startPerfectLink(){
-		sendthreadPtr = new thread(&sp2p::sp2pSend, this);
-		receivethreadPtr = new thread(&flp2p::UDPReceive, this);
-	}
 	void pp2pSend(unsigned int target, urbPacket u){
+		/*
+		while(taskQueueSize > 1000){
+			sleep(1);
+		}*/
 		task t;
 		t.target = target;
 		t.urbmsg = u;
 		//taskQueue_mtx.lock();
 		taskQueue.push(t);
+		//++taskQueueSize;
 		//taskQueue_mtx.unlock();		
 	}
-	deliver pp2pDeliver(){
-		deliver d = sp2pDeliver();
+	~pp2p(){
+	}
+	void pp2pDeliver(deliver d){
 		//while true
 		if(d.realSenderID != 0){
 			string msgVal = getID(d.realSenderID)+ d.urbmsg.getTag();
@@ -32,10 +34,11 @@ public:
 			if(!delivers.count(msgVal)){
 				//cout << "-------pp2pDeliver:"<< msgVal <<endl;
 				delivers.insert(msgVal);
-				return d;
+				//return d;
+				callurb(d);
 			}				
 		}
-		return d;		
+		//return d;		
 	}
 
 };
