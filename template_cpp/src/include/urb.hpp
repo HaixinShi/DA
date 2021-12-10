@@ -67,12 +67,11 @@ public:
 			//cout << "time:"<< ctime(&t)<<"urb pending size:" << to_string( pending.size()) << endl;
 			urbPacket u;//= pending.front();
 			pending.move_pop(u);
-			string urb_str = u.getTag();
-
-			if(canDeliver(urb_str) && !delivers.count(urb_str)){
+			string tag = getID(u.originalSenderID)+to_string(u.lcbmsg.V[u.originalSenderID-1]);
+			if(canDeliver(tag) && !delivers.count(tag)){
 				//cout << "---------urbCanDeliver:" << urb_str <<endl;	
-				delivers.insert(urb_str);
-				pendingTag.erase(urb_str);
+				delivers.insert(tag);
+				pendingTag.erase(tag);
 				//return 	u;
 				calllcb(u);
 			}
@@ -89,27 +88,28 @@ public:
 	void urbDeliver(deliver d){
 		//while(!stopflag){
 			//deliver d = bebDeliver();
-			if(d.realSenderID != 0){
+			//if(d.realSenderID != 0){
 				//cout << "----------urbDeliver" <<endl;
-				string urb_str = d.urbmsg.getTag();
+				//string urb_str = d.urbmsg.getTag();
+				string tag = getID(d.urbmsg.originalSenderID)+to_string(d.urbmsg.lcbmsg.V[d.urbmsg.originalSenderID-1]);
 				acklock.lock();
-				if(ack.find(urb_str)!= ack.end()){
-					ack[urb_str].insert(d.realSenderID);			
+				if(ack.find(tag)!= ack.end()){
+					ack[tag].insert(d.realSenderID);			
 				}
 				else{
 					set<uint8_t> temp;
 					temp.insert(d.realSenderID);
-					ack[urb_str] = temp;
+					ack[tag] = temp;
 				}
 				acklock.unlock();
 
-				if(!pendingTag.count(urb_str)){
-					pendingTag.insert(urb_str);
+				if(!pendingTag.count(tag)){
+					pendingTag.insert(tag);
 					pending.push(d.urbmsg);//original sender + msg +seq
 					//urbTrytoDeliver();
 					bebBroadcast(d.urbmsg);
 				}
-			}
+			//}
 		//}
 	}
 

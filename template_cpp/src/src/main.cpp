@@ -27,10 +27,6 @@ static void stop(int) {
   exit(0);
 }
 
-static void callpp2p(deliver d){
-  lcbPtr -> urbPtr -> pl -> pp2pDeliver(d);    
-}
-
 static void callurb(deliver d){
   lcbPtr -> urbPtr -> urbDeliver(d);
 }
@@ -139,8 +135,6 @@ int main(int argc, char **argv) {
   lcbPtr -> urbPtr -> calllcb = &calllcb;
 
   lcbPtr -> urbPtr -> pl -> callurb = &callurb;
-
-  lcbPtr -> urbPtr -> pl -> callpp2p = &callpp2p;
   
   std::cout << "Broadcasting and delivering messages...\n\n";
   //SendingTask(m);

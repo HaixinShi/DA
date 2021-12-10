@@ -36,15 +36,6 @@ public:
 		return ret;
 	}
 };
-/*
-class urbPacket{//9byte
-public:
-	uint8_t originalSenderID = 0;
-	fifoPacket fifomsg;
-	string getTag(){
-		return getID(originalSenderID) + fifomsg.getTag();
-	}	
-};*/
 
 class urbPacket{
 public:

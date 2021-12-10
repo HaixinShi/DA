@@ -16,9 +16,7 @@ public:
 };
 class deliver{
 public:
-	//udpPacket, size = 10byte
 	urbPacket urbmsg;
-	//udpPacket
 	uint8_t realSenderID = 0;
 };
 struct myhost{
@@ -44,10 +42,12 @@ public:
 	string log;
 	int s;
 	bool stopflag = false;
-
+	
+	set<string> delivers;//in order to avoid duplication of messages
 	//call back
 
-	void (*callpp2p) (deliver);
+	void (*callurb) (deliver);
+
 	//creator funtion of flp2p class
 	flp2p(uint8_t myID, vector<myhost>* hosts, const char* output){
 		cout << "enter creator" << endl;
@@ -174,7 +174,8 @@ public:
 		    	}
 	    	}
 	    	unsigned long int offset = sizeof(char);
-
+			unsigned int seq;
+			memcpy(&seq, buffer + sizeof(char), sizeof(unsigned int));
 		    if(buffer[0] == '0'){
 		    	buffer[0] = '1';
 		    	char ackbuffer[sizeof(char)+sizeof(unsigned int)];
@@ -182,44 +183,35 @@ public:
 		    	memcpy(ackbuffer, buffer, sizeof(char)+sizeof(unsigned int));
 			    sendto(s, ackbuffer, sizeof(ackbuffer), 0, reinterpret_cast<struct sockaddr *>(&addr), addr_len);
 		    	//cout << "-----UDP--Receive----not---ack----" << endl;
-		    	
-		    	/*
-				memcpy(buffer + offset, &u.front().originalSenderID, sizeof(uint8_t));
-				offset += sizeof(uint8_t);
-
-				for(unsigned int j = 0; j < this->hosts.size(); j++){
-					memcpy(buffer + offset, &u.front().lcbmsg.V[j], sizeof(int));
-					offset += sizeof(int); 
-				}
-				memcpy(buffer + offset, &u.front().lcbmsg.msg, sizeof(int));*/
-
-		    	for(unsigned int i = 0; i < maxSize; i++){
-		    		//get messages
-					//vector<int> host_size*4 bytes
-					//uint8_t originalSenderID 1byte
-					//int msg 4bytes
-			    	deliver d;
-			    	d.realSenderID = realSenderID;
-			    	memcpy(&d.urbmsg.originalSenderID, buffer + offset, sizeof(uint8_t));
-					if(d.urbmsg.originalSenderID == 0){
-						//cout << "originalSenderID is zero" << endl;
-				    	break;
-				    }				
-					offset += sizeof(uint8_t);				
-					for(unsigned int j = 0; j < this->hosts.size(); j++){
-						d.urbmsg.lcbmsg.V.push_back(0);
-						memcpy(&d.urbmsg.lcbmsg.V[j], buffer + offset, sizeof(int));
-						offset += sizeof(int); 
-					}	  
-					memcpy(&d.urbmsg.lcbmsg.msg, buffer + offset, sizeof(int)); 
-					offset += sizeof(int);
-					callpp2p(d); 	
-		    	}	    
+			    string tag = getID(realSenderID)+ to_string(seq);
+			    if(!delivers.count(tag)){
+			    	delivers.insert(tag);
+			    	for(unsigned int i = 0; i < maxSize; i++){
+			    		//get messages
+						//vector<int> host_size*4 bytes
+						//uint8_t originalSenderID 1byte
+						//int msg 4bytes
+				    	deliver d;
+				    	d.realSenderID = realSenderID;
+				    	memcpy(&d.urbmsg.originalSenderID, buffer + offset, sizeof(uint8_t));
+						if(d.urbmsg.originalSenderID == 0){
+							//cout << "originalSenderID is zero" << endl;
+					    	break;
+					    }				
+						offset += sizeof(uint8_t);				
+						for(unsigned int j = 0; j < this->hosts.size(); j++){
+							d.urbmsg.lcbmsg.V.push_back(0);
+							memcpy(&d.urbmsg.lcbmsg.V[j], buffer + offset, sizeof(int));
+							offset += sizeof(int); 
+						}	  
+						memcpy(&d.urbmsg.lcbmsg.msg, buffer + offset, sizeof(int)); 
+						offset += sizeof(int);
+						callurb(d); 	
+			    	}
+			    }	    
 		    }
 		    else{//it is ack message
 		    	//cout << "-----UDP--Receive------ack----" << endl;
-				unsigned int seq;
-				memcpy(&seq, buffer + sizeof(char), sizeof(unsigned int));
 				ack_mtx.lock();
 				ack.erase(seq);
 		    	ack_mtx.unlock();		    	
