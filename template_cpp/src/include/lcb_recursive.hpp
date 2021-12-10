@@ -10,7 +10,7 @@ public:
 	string log;
 	mutex loglock;
 	map<int, set<int>> affectSet;
-	queue<urbPacket>pending;
+	map<int, queue<urbPacket>>pending;
 	uint8_t myID;
 	vector<myhost>* hosts;
 
@@ -74,13 +74,16 @@ public:
 		}
 		return true;
 	}
-	void lcbDelibver(urbPacket u){
-		pending.push(u);					
-		long unsigned int cur = pending.size();
-		long unsigned int prev = pending.size();
+	void recursiveDeliver(int id){
+		if(!pending.count(id)){
+			return;
+		}
+		bool hasDeliver = false;
+		long unsigned int cur = pending[id].size();
+		long unsigned int prev = pending[id].size();
 		while(!stopflag && cur){
-			urbPacket temp = pending.front();
-			pending.pop();
+			urbPacket temp = pending[id].front();
+			pending[id].pop();
 			if(canDeliver(temp)){
 				//cout << "lcb can deliver: "<< temp.getTag() << endl;
 				++V[temp.originalSenderID - 1];
@@ -91,27 +94,58 @@ public:
 				loglock.unlock();
 				if(temp.originalSenderID == myID){
 					--balance;
-				}				
+				}
+				hasDeliver = true;				
 			}
 			else{
 				//cout << "lcb can not deliver:" << temp.getTag() << endl;
-				pending.push(temp);
+				pending[id].push(temp);
 			}
 			--cur;
 			//cout << "cur:" << to_string(cur) << endl;
 			if(cur == 0){
 				//cout << "pending size:" << to_string(pending.size()) << endl;
 				//cout << "prev:" << to_string(prev) << endl;
-				if(prev == pending.size()){
+				if(prev == pending[id].size()){
 					break;
 				}
 				else{
-					prev = pending.size();
-					cur = pending.size();
+					prev = pending[id].size();
+					cur = pending[id].size();
 				}
 			}
 		}
-		//cout << "lcb pending size:" << to_string(pending.size()) << endl;		
+		if(hasDeliver){
+			//map<int, set<int>> affectSet;	
+		    for (auto iter = affectSet[id].begin(); iter != affectSet[id].end(); ++iter) {
+		        int index = *iter;
+		        recursiveDeliver(index);
+		    }		
+		}		
+	}
+	void lcbDelibver(urbPacket u){
+		if(canDeliver(u)){
+			++V[u.originalSenderID - 1];
+			loglock.lock();
+			int originalSenderID = u.originalSenderID;
+			log += "d " + to_string(originalSenderID) +" "+ to_string(u.lcbmsg.msg) +"\n";
+			loglock.unlock();	
+			if(u.originalSenderID == myID){
+				--balance;
+			}
+			recursiveDeliver(u.originalSenderID);
+		}
+		else{
+			//map<int, queue<urbPacket>>pending;
+			if(pending.count(u.originalSenderID)){
+				pending[u.originalSenderID].push(u);
+			}
+			else{
+				queue<urbPacket> temp;
+				temp.push(u);
+				pending[u.originalSenderID] = temp;
+			}
+		}	
 	}
 	
 };

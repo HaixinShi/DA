@@ -4,7 +4,7 @@
 #include "parser.hpp"
 #include "hello.h"
 #include <signal.h>
-#include "lcb.hpp"
+#include "lcb_recursive.hpp"
 
 lcb* lcbPtr;
 
@@ -110,6 +110,9 @@ int main(int argc, char **argv) {
   int m;
 
   map<int, vector<int>> neighbor;
+
+  map<int, set<int>> affectSet;
+
   iss >> m; 
   while(getline(configFile, line)){
     istringstream iss(line);
@@ -121,6 +124,16 @@ int main(int argc, char **argv) {
       if(i == 0){
         key = x;
       }
+      else{
+        if(affectSet.count(x)){
+          affectSet[x].insert(key);
+        }
+        else{
+          set<int> temp;
+          temp.insert(key);
+          affectSet[x] = temp;
+        }
+      }
       val.push_back(x);
       i++;
     }
@@ -128,7 +141,7 @@ int main(int argc, char **argv) {
   }
   cout << "m: " << to_string(m) << endl;
 
-  lcb lcbObj(MyID, &myhosts, parser.outputPath(), neighbor);
+  lcb lcbObj(MyID, &myhosts, parser.outputPath(), neighbor, affectSet);
 
   lcbPtr = &lcbObj;
 
