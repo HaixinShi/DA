@@ -10,8 +10,6 @@ class urb{
 public:
 	map<string, set<uint8_t>> ack;
 	unordered_set<string> delivers;
-	SafeQueue<urbPacket> pending;
-	unordered_set<string> pendingTag;
 
 	pp2p* pl;
 	uint8_t myID;
@@ -19,9 +17,8 @@ public:
 	bool stopflag = false;
 	const char* output;
 
-	void (*calllcb) (urbPacket);
-	//mutex pendinglock;	
-	mutex acklock;
+	void (*calllcb) (urbPacket);	
+	//mutex acklock;
 	urb(uint8_t myID, vector<myhost>* hosts, const char* output){
 		this -> myID = myID;
 		this -> hosts = hosts;
@@ -42,75 +39,41 @@ public:
 	void urbBroadcast(lcbPacket l){
 		urbPacket u;
 		u.originalSenderID = myID;
-		u.lcbmsg = l;
-
-		pending.push(u);
-		
+		u.lcbmsg = l;	
 		bebBroadcast(u);
 	}
 	bool canDeliver(string msg){
-			acklock.lock();
-			bool flag = false;
-			if(ack.find(msg)!= ack.end())
-				flag = 2*(ack[msg].size()) > hosts->size();
-			acklock.unlock();
-			return flag;
-	}
-	void urbTrytoDeliver(){
-		//long unsigned int num = pending.size();
-		//while(!stopflag && num > 0&&!pending.empty()){
-		while(!stopflag){
-			if(pending.empty())
-				continue;
-			//time_t t;
-			//time(&t);
-			//cout << "time:"<< ctime(&t)<<"urb pending size:" << to_string( pending.size()) << endl;
-			urbPacket u;//= pending.front();
-			pending.move_pop(u);
-			string tag = getID(u.originalSenderID)+to_string(u.lcbmsg.V[u.originalSenderID-1]);
-			if(canDeliver(tag) && !delivers.count(tag)){
-				//cout << "---------urbCanDeliver:" << urb_str <<endl;	
-				delivers.insert(tag);
-				pendingTag.erase(tag);
-				//return 	u;
-				calllcb(u);
+		bool flag = false;
+		if(ack.find(msg)!= ack.end()){
+			flag = 2*(ack[msg].size()) > hosts->size();
+			if(flag){
+				ack.erase(msg);
 			}
-			else{
-				pending.push(u);
-			}
-		//--num;
 		}
-		/*
-		urbPacket u;
-		u.originalSenderID = 0;	
-		return u;*/
+		return flag;
 	}
-	void urbDeliver(deliver d){
-		//while(!stopflag){
-			//deliver d = bebDeliver();
-			//if(d.realSenderID != 0){
-				//cout << "----------urbDeliver" <<endl;
-				//string urb_str = d.urbmsg.getTag();
-				string tag = getID(d.urbmsg.originalSenderID)+to_string(d.urbmsg.lcbmsg.V[d.urbmsg.originalSenderID-1]);
-				acklock.lock();
-				if(ack.find(tag)!= ack.end()){
-					ack[tag].insert(d.realSenderID);			
-				}
-				else{
-					set<uint8_t> temp;
-					temp.insert(d.realSenderID);
-					ack[tag] = temp;
-				}
-				acklock.unlock();
 
-				if(!pendingTag.count(tag)){
-					pendingTag.insert(tag);
-					pending.push(d.urbmsg);//original sender + msg +seq
-					//urbTrytoDeliver();
-					bebBroadcast(d.urbmsg);
-				}
-			//}
-		//}
+	void urbDeliver(deliver d){
+		//TODO:check bebbroadcast
+		string tag = getID(d.urbmsg.originalSenderID) + to_string(d.urbmsg.lcbmsg.V[d.urbmsg.originalSenderID-1]);
+		if(delivers.count(tag)){
+			return;
+		}
+		if(ack.find(tag)!= ack.end()){
+			//in pending set
+			ack[tag].insert(d.realSenderID);			
+		}
+		else{
+			//not in pending set
+			set<uint8_t> temp;
+			temp.insert(d.realSenderID);
+			ack[tag] = temp;
+			bebBroadcast(d.urbmsg);
+		}
+		if(canDeliver(tag)){
+			calllcb(d.urbmsg);
+			delivers.insert(tag);
+		}
 	}
 
 };

@@ -22,7 +22,10 @@ def read_config():
 
 # find all 'd sender seq' in output_id, where sender is in depent set
 def getDependentList(id, dset):
-    cur_output_path = output_path+str(id)+'.output'
+    if id < 10:
+        cur_output_path = output_path+str(id)+'.output'
+    else:
+        cur_output_path = './proc' +str(id) + '.output'
     f = open(cur_output_path,"r")
     data = f.readlines()
     
@@ -37,7 +40,10 @@ def getDependentList(id, dset):
 
 # find all 'b seq' and relevent delivered message in output_id, where sender is in depent set
 def getDependentListOfCreator(id, dset):
-    cur_output_path = output_path+str(id)+'.output'
+    if id < 10:
+        cur_output_path = output_path+str(id)+'.output'
+    else:
+        cur_output_path = './proc' +str(id) + '.output'
     f = open(cur_output_path,"r")
     data = f.readlines()
     
@@ -98,17 +104,19 @@ def checkProcessId(id, dset):
             # get vector clock
             clock = getVectorClock(sequence, id, proc_num)
             print(cur_id,'#clock:',len(clock))
+            
             # number should be less of equal
             if len(clock)>len(ref_clock):
                 print('Number exceeds!')
                 return False
             # output should be the same with ref_sequence
             for i in range(len(clock)):
-                if ref_clock[i] > clock[i]:
-                    print('Clock not match!')
-                    print('ref_clock:',ref_clock[i])
-                    print('clock    :',clock[i])
-                    return False
+                for j in range(proc_num+1):
+                    if ref_clock[i][j] > clock[i][j]:
+                        print('Clock not match!')
+                        print('ref_clock:',ref_clock[i])
+                        print('clock    :',clock[i])
+                        return False
     return True
 
 # check output of all processes

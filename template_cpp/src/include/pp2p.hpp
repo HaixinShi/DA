@@ -12,12 +12,13 @@ public:
 		while(taskQueueSize > 1000){
 			sleep(1);
 		}*/
+		//cout << "taskQueueSize:" << to_string(taskQueueSize) << endl;
 		task t;
 		t.target = target;
 		t.urbmsg = u;
 		//taskQueue_mtx.lock();
 		taskQueue.push(t);
-		//++taskQueueSize;
+		//taskQueueSize++;
 		//taskQueue_mtx.unlock();		
 	}
 	~pp2p(){

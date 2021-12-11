@@ -43,5 +43,8 @@ public:
 	lcbPacket lcbmsg;
 	string getTag(){
 		return getID(originalSenderID) + lcbmsg.getTag();
+	}
+	bool operator<(const class urbPacket & right)const{
+		return this->lcbmsg.V[this->originalSenderID - 1] < right.lcbmsg.V[right.originalSenderID - 1];
 	}	
 };

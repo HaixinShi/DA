@@ -1,5 +1,6 @@
 #include "SafeQueue.hpp"
 #include "flp2p.hpp"
+
 using namespace std;
 class task{
 public:
@@ -9,9 +10,10 @@ public:
 
 class sp2p : public flp2p{
 public:
+	bool sp2pSendThreadNotFinish = true;
 	//mutex taskQueue_mtx;
 	SafeQueue<task> taskQueue;//total queue
-	//int taskQueueSize = 0;
+	//atomic_int taskQueueSize = 0;
 	unsigned int seq = 1;
 	queue<multitask> retransmitQueue;
 	vector<queue<urbPacket>> processQueues;
@@ -28,7 +30,7 @@ public:
 				//cout << "taskQueue is not empty-------------" << endl;
 				task t;//= taskQueue.front();
 				taskQueue.move_pop(t);
-				//--taskQueueSize;
+				//taskQueueSize--;
 				processQueues[t.target - 1].push(t.urbmsg);
 				//cout<< to_string(t.target - 1)<<"--sp2pSend:" << to_string(processQueues[t.target - 1].size()) << endl;
 				if(processQueues[t.target - 1].size() == maxSize){
@@ -84,12 +86,12 @@ public:
 					else{
 						ack_mtx.unlock();
 					}
-					//no ack
-					/*
-					retransmitQueue.push(mt);
-					flp2pSend(mt.target, mt.urbmsgs, mt.seq);*/
+				}
+				else{
+					sleep(1);
 				}
 			}
-		}	
+		}
+		sp2pSendThreadNotFinish = false;
 	}
 };

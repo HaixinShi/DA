@@ -42,7 +42,7 @@ public:
 	string log;
 	int s;
 	bool stopflag = false;
-	
+	bool udpReceivethreadNotFinish = true;
 	set<string> delivers;//in order to avoid duplication of messages
 	//call back
 
@@ -165,6 +165,7 @@ public:
 		    //cout << "ack flag:" <<buffer[0] << endl;
 		    if(ret == -1){
 		    	cout << "errors in UDPReceive!--"<< strerror(errno) << endl;
+		    	break;
 		    }
 		    uint8_t realSenderID = 0;
 		   	for(unsigned int i = 0; i< this->hosts.size(); i++){
@@ -214,9 +215,12 @@ public:
 		    	//cout << "-----UDP--Receive------ack----" << endl;
 				ack_mtx.lock();
 				ack.erase(seq);
+				//if it does not exist,
+				//it will return 0
 		    	ack_mtx.unlock();		    	
 		    }		   				    
 	    }
+	    udpReceivethreadNotFinish = false;
  	}
 	void flp2pSend(unsigned int target, queue<urbPacket> msg, unsigned int seq){
 		//cout << "enter flp2pSend---" << endl;

@@ -308,7 +308,8 @@ def main(processes, messages, runscript, testType, logsDir, testConfig):
         monitors = [threading.Thread(target=waitForProcess, args=(logicalPID, procHandle, mutex)) for (logicalPID, procHandle) in procs]
         [p.start() for p in monitors]
         [p.join() for p in monitors]
-
+    except Exception as e:
+        print(e)
     finally:
         if procs is not None:
             for _, p in procs:

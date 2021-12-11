@@ -1,19 +1,23 @@
 #include "urb.hpp"	
+#include <atomic>
 using namespace std;
 class lcb
 {
 public:
-	int balance = 0;
+	//traffic control
+	long unsigned int max_balance = 0;
+	long unsigned int memory = 3840; 
+	atomic_uint balance = 0;
+	//
 	int lsn = 0;
 	vector<int>V;
 	map<int, vector<int>> neighbor;
 	string log;
 	mutex loglock;
 	map<int, set<int>> affectSet;
-	queue<urbPacket>pending;
+	map<int, set<urbPacket>>pending;
 	uint8_t myID;
 	vector<myhost>* hosts;
-
 	bool stopflag = false;
 	const char* output;
 	
@@ -37,6 +41,7 @@ public:
 		for(unsigned int i = 0; i < hosts->size();i++){
 			V.push_back(0);
 		}
+		max_balance = memory/hosts->size();
 		urbPtr = new urb(myID, hosts, output);		
 	}
 	~lcb(){
@@ -44,9 +49,11 @@ public:
 		urbPtr = NULL;
 	}
 	void lcbBroadcast(int msg){
-		while(balance > 1000){
+		
+		while(balance > max_balance){
 			sleep(1);
 		}
+		//cout << "balance:" << to_string(balance) << endl;
 		loglock.lock();
 		log += "b " + to_string(msg) + "\n";
 		loglock.unlock();
@@ -57,15 +64,9 @@ public:
 		l.msg = msg;
 		++lsn;
 		urbPtr -> urbBroadcast(l);
-		++balance;
+		balance++;
 	}
 	bool canDeliver(urbPacket u){
-		/*string v ="[";
-		for(unsigned int i = 0; i< V.size(); i++){
-			v += to_string(V[i]) + "," ;
-		}
-		v += "]";
-		cout << v << endl;*/
 		for(unsigned int i = 0; i< neighbor[u.originalSenderID].size(); i++){
 			int index = neighbor[u.originalSenderID][i] - 1;
 			if(V[index] < u.lcbmsg.V[index]){
@@ -74,15 +75,21 @@ public:
 		}
 		return true;
 	}
-	void lcbDelibver(urbPacket u){
-		pending.push(u);					
-		long unsigned int cur = pending.size();
-		long unsigned int prev = pending.size();
-		while(!stopflag && cur){
-			urbPacket temp = pending.front();
-			pending.pop();
+	void recursiveDeliver(int id, bool hasDeliverInput){
+		//TODO self again
+		if(!pending.count(id)){
+			return;
+		}
+		bool hasDeliver = hasDeliverInput;
+		//for lcbDeliver function call, ensure it would call affectSet
+		//for recursiveDeliver function call, 
+		//ensure to check if its set can deliver any message
+
+		set<urbPacket>::iterator it = pending[id].begin();
+		while(it != pending[id].end()){
+			urbPacket temp = (*it);
 			if(canDeliver(temp)){
-				//cout << "lcb can deliver: "<< temp.getTag() << endl;
+				//cout << "lcb can deliver: balance: "<< to_string(balance)<< endl;
 				++V[temp.originalSenderID - 1];
 				loglock.lock();
 				int originalSenderID = temp.originalSenderID;
@@ -90,28 +97,46 @@ public:
 				//cout << "d " <<" "<< temp.getTag() +"\n";
 				loglock.unlock();
 				if(temp.originalSenderID == myID){
-					--balance;
-				}				
+					balance--;
+				}
+				hasDeliver = true;	
+				pending[id].erase(it++);				
 			}
 			else{
-				//cout << "lcb can not deliver:" << temp.getTag() << endl;
-				pending.push(temp);
-			}
-			--cur;
-			//cout << "cur:" << to_string(cur) << endl;
-			if(cur == 0){
-				//cout << "pending size:" << to_string(pending.size()) << endl;
-				//cout << "prev:" << to_string(prev) << endl;
-				if(prev == pending.size()){
-					break;
-				}
-				else{
-					prev = pending.size();
-					cur = pending.size();
-				}
+				break;
 			}
 		}
-		//cout << "lcb pending size:" << to_string(pending.size()) << endl;		
+		if(hasDeliver){
+			//map<int, set<int>> affectSet;	
+		    for (auto iter = affectSet[id].begin(); iter != affectSet[id].end(); ++iter) {
+		        int index = *iter;
+		        recursiveDeliver(index, false);
+		    }		
+		}		
+	}
+	void lcbDelibver(urbPacket u){
+		if(canDeliver(u)){
+			++V[u.originalSenderID - 1];
+			loglock.lock();
+			int originalSenderID = u.originalSenderID;
+			log += "d " + to_string(originalSenderID) +" "+ to_string(u.lcbmsg.msg) +"\n";
+			loglock.unlock();	
+			if(u.originalSenderID == myID){
+				balance--;
+			}
+			recursiveDeliver(u.originalSenderID, true);
+		}
+		else{
+			//map<int, queue<urbPacket>>pending;
+			if(pending.count(u.originalSenderID)){
+				pending[u.originalSenderID].insert(u);
+			}
+			else{
+				set<urbPacket> temp;
+				temp.insert(u);
+				pending[u.originalSenderID] = temp;
+			}
+		}	
 	}
 	
 };

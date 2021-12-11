@@ -4,10 +4,11 @@
 #include "parser.hpp"
 #include "hello.h"
 #include <signal.h>
-#include "lcb_recursive.hpp"
+#include "lcb.hpp"
 
 lcb* lcbPtr;
-
+static bool stopflag = false;
+static bool SendingTaskNotFinish = true;
 static void stop(int) {
   // reset signal handlers to default
   signal(SIGTERM, SIG_DFL);
@@ -15,6 +16,7 @@ static void stop(int) {
   
   // immediately stop network packet processing
   std::cout << "Immediately stopping network packet processing.\n";
+  stopflag = true;
   lcbPtr -> stopflag = true;
   lcbPtr -> urbPtr -> stopflag = true;
   lcbPtr -> urbPtr -> pl -> stopflag = true;
@@ -23,6 +25,16 @@ static void stop(int) {
   // write/flush output file if necessary 
   std::cout << "Writing output.\n";
   lcbPtr -> logfunction();
+  /*
+  cout << "0" << endl;
+  while(SendingTaskNotFinish);
+  cout << "1" << endl;
+  while(lcbPtr -> urbPtr -> pl->sp2pSendThreadNotFinish);
+  cout << "2" << endl;
+  //while(lcbPtr -> urbPtr -> pl->udpReceivethreadNotFinish); 
+  cout << "3" << endl;
+  delete lcbPtr;
+  lcbPtr = NULL;*/
   // exit directly from signal handler*/
   exit(0);
 }
@@ -38,10 +50,13 @@ static void SendingTask (int m){
     //it could run a thread. 
     //This function is deviced for not blocking main thread early
   int arbitaryMsg = 1;
-  for(int j = 0; j < m; j++){
+  for(int j = 0; j < m; j++){  
+    if(stopflag)
+      break;
     lcbPtr -> lcbBroadcast(arbitaryMsg);
     arbitaryMsg ++;    
   } 
+  SendingTaskNotFinish = false;
 }
 int main(int argc, char **argv) {
   signal(SIGTERM, stop);
@@ -139,12 +154,10 @@ int main(int argc, char **argv) {
     }
     neighbor[key] = val;
   }
-  cout << "m: " << to_string(m) << endl;
+  cout << "m: " << to_string(m) << endl; 
 
   lcb lcbObj(MyID, &myhosts, parser.outputPath(), neighbor, affectSet);
-
   lcbPtr = &lcbObj;
-
   lcbPtr -> urbPtr -> calllcb = &calllcb;
 
   lcbPtr -> urbPtr -> pl -> callurb = &callurb;
@@ -154,11 +167,9 @@ int main(int argc, char **argv) {
   thread sp2pSendThread(&sp2p::sp2pSend, lcbPtr -> urbPtr -> pl);
   thread udpReceivethread(&flp2p::UDPReceive, lcbPtr -> urbPtr -> pl);
   thread TaskThread(&SendingTask, m);
-  thread urbTrytoDeliverThread(&urb::urbTrytoDeliver, lcbPtr -> urbPtr);
   sp2pSendThread.join();
   udpReceivethread.join();
   TaskThread.join();
-  urbTrytoDeliverThread.join();
   // After a process finishes broadcasting,
   // it waits forever for the delivery of messages.*/
   while (true) {
